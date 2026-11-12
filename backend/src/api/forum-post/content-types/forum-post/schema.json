@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "forum_posts",
+  "info": {
+    "singularName": "forum-post",
+    "pluralName": "forum-posts",
+    "displayName": "ForumPost",
+    "description": "Сообщения в темах форумов"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "Message": {
+      "type": "text",
+      "required": true
+    },
+    "Author": {
+      "type": "string"
+    },
+    "Topic": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::forum-topic.forum-topic",
+      "inversedBy": "Posts"
+    }
+  }
+}

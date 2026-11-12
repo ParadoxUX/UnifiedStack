@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "forum_topics",
+  "info": {
+    "singularName": "forum-topic",
+    "pluralName": "forum-topics",
+    "displayName": "ForumTopic",
+    "description": "Темы форумов"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "Title": {
+      "type": "string",
+      "required": true
+    },
+    "Content": {
+      "type": "text"
+    },
+    "Author": {
+      "type": "string"
+    },
+    "Views": {
+      "type": "integer",
+      "default": 0
+    },
+    "MessagesCount": {
+      "type": "integer",
+      "default": 0
+    },
+    "Category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::forum-category.forum-category",
+      "inversedBy": "Topics"
+    },
+    "Posts": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::forum-post.forum-post",
+      "mappedBy": "Topic"
+    }
+  }
+}

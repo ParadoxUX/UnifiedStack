@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "support_tickets",
+  "info": {
+    "singularName": "support-ticket",
+    "pluralName": "support-tickets",
+    "displayName": "SupportTicket",
+    "description": "Тикеты поддержки пользователей"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "TicketNumber": {
+      "type": "string",
+      "unique": true
+    },
+    "Subject": {
+      "type": "string",
+      "required": true
+    },
+    "Category": {
+      "type": "string"
+    },
+    "Priority": {
+      "type": "string"
+    },
+    "Status": {
+      "type": "string"
+    },
+    "Message": {
+      "type": "text",
+      "required": true
+    },
+    "ContactEmail": {
+      "type": "string"
+    },
+    "Response": {
+      "type": "text"
+    },
+    "ResponseDate": {
+      "type": "datetime"
+    }
+  }
+}

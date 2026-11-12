@@ -758,10 +758,86 @@ export interface ApiForumCategoryForumCategory
       Schema.Attribute.Private;
     MessagesCount: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    Topics: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::forum-topic.forum-topic'
+    >;
     TopicsCount: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiForumPostForumPost extends Struct.CollectionTypeSchema {
+  collectionName: 'forum_posts';
+  info: {
+    description: '\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0432 \u0442\u0435\u043C\u0430\u0445 \u0444\u043E\u0440\u0443\u043C\u043E\u0432';
+    displayName: 'ForumPost';
+    pluralName: 'forum-posts';
+    singularName: 'forum-post';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    Author: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::forum-post.forum-post'
+    > &
+      Schema.Attribute.Private;
+    Message: Schema.Attribute.Text & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    Topic: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::forum-topic.forum-topic'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiForumTopicForumTopic extends Struct.CollectionTypeSchema {
+  collectionName: 'forum_topics';
+  info: {
+    description: '\u0422\u0435\u043C\u044B \u0444\u043E\u0440\u0443\u043C\u043E\u0432';
+    displayName: 'ForumTopic';
+    pluralName: 'forum-topics';
+    singularName: 'forum-topic';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    Author: Schema.Attribute.String;
+    Category: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::forum-category.forum-category'
+    >;
+    Content: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::forum-topic.forum-topic'
+    > &
+      Schema.Attribute.Private;
+    MessagesCount: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    Posts: Schema.Attribute.Relation<'oneToMany', 'api::forum-post.forum-post'>;
+    publishedAt: Schema.Attribute.DateTime;
+    Title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    Views: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
   };
 }
 
@@ -1037,6 +1113,44 @@ export interface ApiStreamStream extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     viewers: Schema.Attribute.String;
+  };
+}
+
+export interface ApiSupportTicketSupportTicket
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'support_tickets';
+  info: {
+    description: '\u0422\u0438\u043A\u0435\u0442\u044B \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0438 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439';
+    displayName: 'SupportTicket';
+    pluralName: 'support-tickets';
+    singularName: 'support-ticket';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    Category: Schema.Attribute.String;
+    ContactEmail: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::support-ticket.support-ticket'
+    > &
+      Schema.Attribute.Private;
+    Message: Schema.Attribute.Text & Schema.Attribute.Required;
+    Priority: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    Response: Schema.Attribute.Text;
+    ResponseDate: Schema.Attribute.DateTime;
+    Status: Schema.Attribute.String;
+    Subject: Schema.Attribute.String & Schema.Attribute.Required;
+    TicketNumber: Schema.Attribute.String & Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1711,6 +1825,8 @@ declare module '@strapi/strapi' {
       'api::event.event': ApiEventEvent;
       'api::faq.faq': ApiFaqFaq;
       'api::forum-category.forum-category': ApiForumCategoryForumCategory;
+      'api::forum-post.forum-post': ApiForumPostForumPost;
+      'api::forum-topic.forum-topic': ApiForumTopicForumTopic;
       'api::game.game': ApiGameGame;
       'api::game1.game1': ApiGame1Game1;
       'api::global.global': ApiGlobalGlobal;
@@ -1719,6 +1835,7 @@ declare module '@strapi/strapi' {
       'api::popular-topic.popular-topic': ApiPopularTopicPopularTopic;
       'api::requirement.requirement': ApiRequirementRequirement;
       'api::stream.stream': ApiStreamStream;
+      'api::support-ticket.support-ticket': ApiSupportTicketSupportTicket;
       'api::tariff.tariff': ApiTariffTariff;
       'api::transaction.transaction': ApiTransactionTransaction;
       'api::useful-link.useful-link': ApiUsefulLinkUsefulLink;

@@ -38,6 +38,12 @@
         "videos",
         "audios"
       ]
+    },
+    "Topics": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::forum-topic.forum-topic",
+      "mappedBy": "Category"
     }
   }
 }
