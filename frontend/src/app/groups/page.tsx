@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { getJSON, setJSON } from "@/lib/storage";
 import { showToast } from "@/lib/toast";
-import { fetchGroups } from "@/lib/strapi";
+import { fetchGroups, createGroup } from "@/lib/strapi";
+import Icon from "@/components/ui/Icon";
 
 interface Group {
   id: string;
@@ -14,13 +15,13 @@ interface Group {
   color: string;
   isMember: boolean;
   isOwner?: boolean;
-  rating?: number;
 }
 
 export default function GroupsPage() {
   const [activeTab, setActiveTab] = useState<"my" | "popular">("my");
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newGroup, setNewGroup] = useState({ name: "", desc: "" });
 
@@ -79,23 +80,57 @@ export default function GroupsPage() {
     showToast("Вы покинули группу", "info");
   };
 
-  const handleCreate = () => {
-    if (!newGroup.name.trim()) return;
-    const newG: Group = {
-      id: "g_" + Date.now(),
-      name: newGroup.name.trim(),
-      desc: newGroup.desc.trim() || "Без описания",
-      members: 1,
-      posts: 0,
-      color: "#" + Math.floor(Math.random() * 16777215).toString(16),
-      isMember: true,
-      isOwner: true,
-    };
-    const updated = [newG, ...groups];
-    setGroups(updated);
-    setShowCreate(false);
-    setNewGroup({ name: "", desc: "" });
-    showToast("Группа создана!", "success");
+  // Создание группы: POST в Strapi, при ошибке — локально
+  const handleCreate = async () => {
+    if (!newGroup.name.trim() || creating) return;
+    setCreating(true);
+    const color =
+      "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+
+    try {
+      const created = await createGroup({
+        Title: newGroup.name.trim(),
+        Description: newGroup.desc.trim() || "Без описания",
+        Members: 1,
+        Posts: 0,
+        Color: color,
+      });
+      if (created) {
+        const createdGroup: Group = {
+          id: created.documentId || "g_" + Date.now(),
+          name: created.Title || newGroup.name.trim(),
+          desc: created.Description || "Без описания",
+          members: Number(created.Members) || 1,
+          posts: Number(created.Posts) || 0,
+          color: created.Color || color,
+          isMember: true,
+          isOwner: true,
+        };
+        setGroups((prev) => [createdGroup, ...prev]);
+        const userGroups = getJSON<string[]>("user_groups", []);
+        setJSON("user_groups", [...userGroups, createdGroup.id]);
+      }
+      showToast("Группа создана!", "success");
+    } catch (err: any) {
+      console.error("[groups] Не удалось создать группу:", err);
+      const fallback: Group = {
+        id: "g_" + Date.now(),
+        name: newGroup.name.trim(),
+        desc: newGroup.desc.trim() || "Без описания",
+        members: 1,
+        posts: 0,
+        color,
+        isMember: true,
+        isOwner: true,
+      };
+      setGroups((prev) => [fallback, ...prev]);
+      showToast("Сервер недоступен — группа сохранена локально", "info");
+    } finally {
+      setCreating(false);
+      setShowCreate(false);
+      setNewGroup({ name: "", desc: "" });
+      setActiveTab("my");
+    }
   };
 
   const displayed =
@@ -104,308 +139,140 @@ export default function GroupsPage() {
       : groups.filter((g) => !g.isMember);
 
   if (loading) {
-    return (
-      <div style={{ padding: "30px", color: "#fff" }}>Загрузка групп...</div>
-    );
+    return <div className="groups-page groups-loading">Загрузка групп...</div>;
   }
 
   return (
-    <div style={{ padding: "30px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "30px",
-        }}
-      >
-        <h1 style={{ color: "#fff", margin: 0 }}>Группы и сообщества</h1>
-        <button
-          onClick={() => setShowCreate(true)}
-          style={{
-            padding: "10px 20px",
-            background: "#8f3ed1",
-            color: "#fff",
-            border: "none",
-            borderRadius: "20px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          + Создать группу
-        </button>
-      </div>
+    <div className="groups-page">
+      <div className="groups-container">
+        <div className="groups-header">
+          <h1 className="groups-title">Группы и сообщества</h1>
+          <p className="groups-subtitle">
+            Находите единомышленников и играйте вместе
+          </p>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="create-group-btn"
+          >
+            <Icon name="plus" size={18} /> Создать группу
+          </button>
+        </div>
 
-      <div style={{ display: "flex", gap: "10px", marginBottom: "30px" }}>
-        <button
-          onClick={() => setActiveTab("my")}
-          style={{
-            padding: "10px 24px",
-            background: activeTab === "my" ? "#8f3ed1" : "#222",
-            color: "#fff",
-            border: "none",
-            borderRadius: "20px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Мои группы ({groups.filter((g) => g.isMember).length})
-        </button>
-        <button
-          onClick={() => setActiveTab("popular")}
-          style={{
-            padding: "10px 24px",
-            background: activeTab === "popular" ? "#8f3ed1" : "#222",
-            color: "#fff",
-            border: "none",
-            borderRadius: "20px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Популярные
-        </button>
-      </div>
+        <div className="groups-tabs">
+          <button
+            onClick={() => setActiveTab("my")}
+            className={`groups-tab-btn ${activeTab === "my" ? "active" : ""}`}
+          >
+            <Icon name="users" size={18} />
+            Мои группы
+            <span className="tab-count">
+              {groups.filter((g) => g.isMember).length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab("popular")}
+            className={`groups-tab-btn ${activeTab === "popular" ? "active" : ""}`}
+          >
+            <Icon name="fire" size={18} />
+            Популярные
+            <span className="tab-count">
+              {groups.filter((g) => !g.isMember).length}
+            </span>
+          </button>
+        </div>
 
-      {displayed.length === 0 ? (
-        <p style={{ color: "#888", textAlign: "center", padding: "40px" }}>
-          {activeTab === "my"
-            ? "Вы пока не состоите ни в одной группе"
-            : "Нет доступных групп"}
-        </p>
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-            gap: "20px",
-          }}
-        >
-          {displayed.map((g) => (
-            <div
-              key={g.id}
-              style={{
-                background: "#1a1a1a",
-                borderRadius: "15px",
-                overflow: "hidden",
-                border: "1px solid #333",
-              }}
-            >
-              <div style={{ height: "6px", background: g.color }}></div>
-              <div style={{ padding: "20px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <h3 style={{ margin: 0, color: "#fff" }}>{g.name}</h3>
-                  {g.rating && (
-                    <span
-                      style={{
-                        background: "rgba(255,170,0,0.2)",
-                        color: "#ffaa00",
-                        padding: "4px 10px",
-                        borderRadius: "20px",
-                        fontSize: "12px",
-                      }}
+        {displayed.length === 0 ? (
+          <p className="groups-empty">
+            {activeTab === "my"
+              ? "Вы пока не состоите ни в одной группе"
+              : "Нет доступных групп"}
+          </p>
+        ) : (
+          <div className="groups-grid">
+            {displayed.map((g) => (
+              <div key={g.id} className="group-card">
+                <div className="group-color-bar" style={{ background: g.color }}></div>
+                <div className="group-info">
+                  <div className="group-header">
+                    <h3>{g.name}</h3>
+                    {g.isOwner && <span className="group-badge">Создатель</span>}
+                  </div>
+                  <p className="group-description">{g.desc}</p>
+                  <div className="group-stats">
+                    <div className="stat">
+                      <span className="stat-value">
+                        {g.members.toLocaleString("ru-RU")}
+                      </span>
+                      <span className="stat-label">участников</span>
+                    </div>
+                    <div className="stat">
+                      <span className="stat-value">{g.posts}</span>
+                      <span className="stat-label">постов</span>
+                    </div>
+                  </div>
+                  {g.isMember ? (
+                    <div className="group-actions">
+                      <button
+                        onClick={() =>
+                          showToast(`Открываем группу "${g.name}"`, "info")
+                        }
+                        className="group-btn primary"
+                      >
+                        Открыть
+                      </button>
+                      {!g.isOwner && (
+                        <button
+                          onClick={() => handleLeave(g.id)}
+                          className="group-btn secondary"
+                        >
+                          Выйти
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleJoin(g.id)}
+                      className="group-btn primary join-btn"
                     >
-                      ★ {g.rating}
-                    </span>
+                      Вступить
+                    </button>
                   )}
                 </div>
-                <p
-                  style={{
-                    color: "#aaa",
-                    fontSize: "14px",
-                    marginBottom: "15px",
-                  }}
-                >
-                  {g.desc}
-                </p>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "20px",
-                    borderTop: "1px solid #333",
-                    borderBottom: "1px solid #333",
-                    padding: "10px 0",
-                    marginBottom: "15px",
-                  }}
-                >
-                  <div>
-                    <span
-                      style={{
-                        color: "#fff",
-                        fontWeight: "bold",
-                        display: "block",
-                      }}
-                    >
-                      {g.members.toLocaleString()}
-                    </span>
-                    <span style={{ fontSize: "11px", color: "#888" }}>
-                      участников
-                    </span>
-                  </div>
-                  <div>
-                    <span
-                      style={{
-                        color: "#fff",
-                        fontWeight: "bold",
-                        display: "block",
-                      }}
-                    >
-                      {g.posts}
-                    </span>
-                    <span style={{ fontSize: "11px", color: "#888" }}>
-                      постов
-                    </span>
-                  </div>
-                </div>
-                {g.isMember ? (
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <button
-                      onClick={() => alert(`Открываем группу "${g.name}"`)}
-                      style={{
-                        flex: 2,
-                        padding: "10px",
-                        background: "#8f3ed1",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "10px",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      Открыть
-                    </button>
-                    {!g.isOwner && (
-                      <button
-                        onClick={() => handleLeave(g.id)}
-                        style={{
-                          flex: 1,
-                          padding: "10px",
-                          background: "transparent",
-                          color: "#ff4444",
-                          border: "1px solid #ff4444",
-                          borderRadius: "10px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Выйти
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleJoin(g.id)}
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      background: "#4caf50",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "10px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Вступить
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
+      {/* Модалка создания группы */}
       {showCreate && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.8)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              background: "#1a1a1a",
-              padding: "30px",
-              borderRadius: "20px",
-              width: "100%",
-              maxWidth: "400px",
-              border: "1px solid #8f3ed1",
-            }}
-          >
-            <h3 style={{ marginTop: 0, color: "#fff" }}>Создать группу</h3>
+        <div className="forum-modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="forum-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="forum-modal-title">Создать группу</h3>
             <input
               type="text"
               placeholder="Название"
               value={newGroup.name}
-              onChange={(e) =>
-                setNewGroup({ ...newGroup, name: e.target.value })
-              }
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "8px",
-                border: "1px solid #333",
-                background: "#222",
-                color: "#fff",
-                marginBottom: "10px",
-                boxSizing: "border-box",
-              }}
+              onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+              className="forum-modal-input"
             />
             <textarea
               placeholder="Описание"
               value={newGroup.desc}
-              onChange={(e) =>
-                setNewGroup({ ...newGroup, desc: e.target.value })
-              }
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "8px",
-                border: "1px solid #333",
-                background: "#222",
-                color: "#fff",
-                marginBottom: "15px",
-                minHeight: "60px",
-                boxSizing: "border-box",
-              }}
+              onChange={(e) => setNewGroup({ ...newGroup, desc: e.target.value })}
+              className="forum-modal-textarea forum-modal-textarea--short"
             />
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div className="forum-modal-actions">
               <button
                 onClick={handleCreate}
-                style={{
-                  flex: 1,
-                  padding: "10px",
-                  background: "#8f3ed1",
-                  border: "none",
-                  borderRadius: "8px",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
+                disabled={creating}
+                className="forum-modal-submit"
               >
-                Создать
+                {creating ? "Создание..." : "Создать"}
               </button>
               <button
                 onClick={() => setShowCreate(false)}
-                style={{
-                  flex: 1,
-                  padding: "10px",
-                  background: "transparent",
-                  border: "1px solid #333",
-                  borderRadius: "8px",
-                  color: "#aaa",
-                  cursor: "pointer",
-                }}
+                className="forum-modal-cancel"
               >
                 Отмена
               </button>

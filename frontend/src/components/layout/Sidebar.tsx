@@ -66,6 +66,9 @@ export default function Sidebar() {
           <li className={`sidebar-btn ${isActive('/supports') ? 'active' : ''}`}>
             <Link href="/supports"><img src="/supports.svg" alt="" className="icon" />{t('supports')}</Link>
           </li>
+          <li className={`sidebar-btn ${isActive('/faq') ? 'active' : ''}`}>
+            <Link href="/faq"><img src="/supports.svg" alt="" className="icon" />FAQ</Link>
+          </li>
         </ul>
       </nav>
     </>

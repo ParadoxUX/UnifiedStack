@@ -6,17 +6,65 @@ import {
   fetchContacts,
   fetchUsefulLinks,
   fetchRequirements,
+  fetchSupportTickets,
+  fetchSupportTicketById,
+  createSupportTicket,
+  SupportTicketItem,
 } from "@/lib/strapi";
+import { getCurrentUser } from "@/lib/auth";
+import { getJSON, setJSON } from "@/lib/storage";
+import { showToast } from "@/lib/toast";
+import Icon from "@/components/ui/Icon";
+import Link from "next/link";
+
+const TICKET_CATEGORIES = [
+  { value: "account", label: "Аккаунт и вход" },
+  { value: "payment", label: "Платежи и покупки" },
+  { value: "technical", label: "Технические проблемы" },
+  { value: "other", label: "Другое" },
+];
+
+const TICKET_PRIORITIES = [
+  { value: "low", label: "Низкий" },
+  { value: "medium", label: "Средний" },
+  { value: "high", label: "Высокий" },
+];
+
+const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  open: { label: "Открыт", className: "open" },
+  answered: { label: "Есть ответ", className: "answered" },
+  closed: { label: "Закрыт", className: "closed" },
+};
+
+type Tab = "faq" | "tickets" | "new";
 
 export default function SupportPage() {
+  const [tab, setTab] = useState<Tab>("faq");
   const [faqs, setFaqs] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [links, setLinks] = useState<any[]>([]);
   const [requirements, setRequirements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [faqSearch, setFaqSearch] = useState("");
   const [openFaq, setOpenFaq] = useState<string | null>(null);
 
+  // Тикеты
+  const [tickets, setTickets] = useState<SupportTicketItem[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicketItem | null>(null);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [ticketForm, setTicketForm] = useState({
+    Subject: "",
+    Category: "technical",
+    Priority: "medium",
+    Message: "",
+    ContactEmail: "",
+  });
+
   useEffect(() => {
+    const user = getCurrentUser();
+    setTicketForm((prev) => ({ ...prev, ContactEmail: user?.email || "" }));
+
     Promise.all([
       fetchFaqs().catch((e) => {
         console.error("FAQ:", e);
@@ -43,308 +91,467 @@ export default function SupportPage() {
     });
   }, []);
 
+  // Загрузка тикетов пользователя (по email + по сохранённым номерам)
+  const loadTickets = async () => {
+    setTicketsLoading(true);
+    try {
+      const user = getCurrentUser();
+      const email = user?.email || ticketForm.ContactEmail.trim().toLowerCase();
+      const savedIds = getJSON<string[]>("user_tickets", []);
+
+      const byEmail = email
+        ? await fetchSupportTickets(email).catch(() => [])
+        : [];
+
+      const byId = await Promise.all(
+        savedIds.map((id) => fetchSupportTicketById(id).catch(() => null))
+      );
+
+      const merged = [...byEmail, ...byId.filter(Boolean)] as SupportTicketItem[];
+      // Убираем дубликаты по documentId
+      const unique = merged.filter(
+        (t, i, arr) => t && t.id && arr.findIndex((x) => x.id === t.id) === i
+      );
+      setTickets(unique);
+    } finally {
+      setTicketsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "tickets") loadTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  // Создание тикета
+  const handleCreateTicket = async () => {
+    const { Subject, Message, ContactEmail } = ticketForm;
+    if (!Subject.trim() || !Message.trim() || !ContactEmail.trim() || submitting) return;
+    setSubmitting(true);
+
+    const payload = {
+      ...ticketForm,
+      Subject: Subject.trim(),
+      Message: Message.trim(),
+      ContactEmail: ContactEmail.trim().toLowerCase(),
+      Status: "open",
+      TicketNumber: "TK-" + Date.now().toString(36).toUpperCase(),
+    };
+
+    try {
+      const created = await createSupportTicket(payload);
+      if (created?.id) {
+        const savedIds = getJSON<string[]>("user_tickets", []);
+        setJSON("user_tickets", [...savedIds, created.documentId || created.id]);
+      }
+      showToast(
+        `Тикет создан! Номер: ${payload.TicketNumber}. Ответ придёт на ${payload.ContactEmail}`,
+        "success"
+      );
+      setTicketForm({
+        Subject: "",
+        Category: "technical",
+        Priority: "medium",
+        Message: "",
+        ContactEmail,
+      });
+      setTab("tickets");
+    } catch (err: any) {
+      console.error("[supports] Не удалось создать тикет:", err);
+      showToast("Не удалось создать тикет. Проверьте подключение к серверу.", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filteredFaqs = faqs.filter((f) => {
+    const q = f.question || f.Question || "";
+    const a = f.answer || f.Answer || "";
+    const s = faqSearch.toLowerCase();
+    return q.toLowerCase().includes(s) || a.toLowerCase().includes(s);
+  });
+
+  const contactTitle = (c: any) => c.title || c.Title || "Контакт";
+  const contactDesc = (c: any) => c.value || c.Value || "";
+  const contactLink = (c: any) => c.link || c.Link || "";
+  const contactBtn = (c: any) => c.buttonText || c.ButtonText || "Перейти";
+
   if (loading) {
-    return <div style={{ padding: "30px", color: "#fff" }}>Загрузка...</div>;
+    return <div className="supports-page">Загрузка...</div>;
   }
 
   return (
-    <div style={{ padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
-      <h1
-        style={{
-          color: "#fff",
-          textAlign: "center",
-          marginBottom: "40px",
-          fontSize: "32px",
-        }}
-      >
-        Центр поддержки
-      </h1>
+    <div className="supports-page">
+      <div className="supports-container">
+        <h1 className="supports-title">Центр поддержки</h1>
+        <p className="supports-subtitle">
+          Найдите ответ в FAQ или создайте тикет — мы ответим на почту
+        </p>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-          gap: "30px",
-        }}
-      >
-        {/* 1. ЧАСТО ЗАДАВАЕМЫЕ ВОПРОСЫ (FAQ) */}
-        <div
-          style={{
-            background: "#1a1a1a",
-            borderRadius: "20px",
-            padding: "25px",
-            border: "1px solid #2a2a2a",
-          }}
-        >
-          <h2
-            style={{
-              color: "#fff",
-              marginTop: 0,
-              borderBottom: "2px solid #8f3ed1",
-              paddingBottom: "10px",
-              display: "inline-block",
-            }}
+        {/* Табы */}
+        <div className="supports-tabs">
+          <button
+            onClick={() => setTab("faq")}
+            className={`supports-tab-btn ${tab === "faq" ? "active" : ""}`}
           >
-            Часто задаваемые вопросы
-          </h2>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px",
-              marginTop: "20px",
-            }}
+            <Icon name="help" size={18} /> FAQ
+          </button>
+          <button
+            onClick={() => setTab("tickets")}
+            className={`supports-tab-btn ${tab === "tickets" ? "active" : ""}`}
           >
-            {faqs.length === 0 && (
-              <p style={{ color: "#aaa" }}>Вопросов пока нет</p>
-            )}
-            {faqs.map((faq) => (
-              <div
-                key={faq.documentId}
-                style={{
-                  background: "#222",
-                  borderRadius: "10px",
-                  overflow: "hidden",
-                }}
-              >
-                <button
-                  onClick={() =>
-                    setOpenFaq(
-                      openFaq === faq.documentId ? null : faq.documentId
-                    )
-                  }
-                  style={{
-                    width: "100%",
-                    padding: "15px",
-                    background: "transparent",
-                    border: "none",
-                    color: "#fff",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {/* Берем поле question (как в вашем JSON) */}
-                  {faq.question || faq.Question || "Вопрос без названия"}
-                  <span style={{ color: "#8f3ed1", fontSize: "20px" }}>
-                    {openFaq === faq.documentId ? "−" : "+"}
-                  </span>
-                </button>
-                {openFaq === faq.documentId && (
-                  <div
-                    style={{
-                      padding: "0 15px 15px",
-                      color: "#aaa",
-                      fontSize: "14px",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {/* Берем поле answer (как в вашем JSON) */}
-                    {faq.answer || faq.Answer || "Ответ отсутствует"}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+            <Icon name="ticket" size={18} /> Мои тикеты
+          </button>
+          <button
+            onClick={() => setTab("new")}
+            className={`supports-tab-btn ${tab === "new" ? "active" : ""}`}
+          >
+            <Icon name="edit" size={18} /> Новый тикет
+          </button>
         </div>
 
-        {/* 2. СВЯЗАТЬСЯ С НАМИ (CONTACTS) */}
-        <div
-          style={{
-            background: "#1a1a1a",
-            borderRadius: "20px",
-            padding: "25px",
-            border: "1px solid #2a2a2a",
-          }}
-        >
-          <h2
-            style={{
-              color: "#fff",
-              marginTop: 0,
-              borderBottom: "2px solid #8f3ed1",
-              paddingBottom: "10px",
-              display: "inline-block",
-            }}
-          >
-            Связаться с нами
-          </h2>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "15px",
-              marginTop: "20px",
-            }}
-          >
-            {contacts.length === 0 && (
-              <p style={{ color: "#aaa" }}>Контактов пока нет</p>
-            )}
-            {contacts.map((contact) => (
-              <div
-                key={contact.documentId}
-                style={{
-                  background: "#222",
-                  padding: "15px",
-                  borderRadius: "12px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
+        {/* ===== TAB: FAQ ===== */}
+        {tab === "faq" && (
+          <>
+            <div className="supports-search">
+              <input
+                type="text"
+                placeholder="Поиск по вопросам..."
+                value={faqSearch}
+                onChange={(e) => setFaqSearch(e.target.value)}
+                className="supports-search-input"
+              />
+              <button
+                onClick={() => setOpenFaq(null)}
+                className="supports-search-btn"
               >
-                <div>
-                  {/* Универсальный поиск названия */}
-                  <div style={{ color: "#fff", fontWeight: "bold" }}>
-                    {contact.Title ||
-                      contact.title ||
-                      contact.Name ||
-                      contact.name ||
-                      "Контакт"}
-                  </div>
-                  {/* Универсальный поиск описания */}
-                  <div style={{ color: "#aaa", fontSize: "13px" }}>
-                    {contact.Description ||
-                      contact.description ||
-                      contact.Value ||
-                      contact.value ||
-                      ""}
-                  </div>
+                Найти
+              </button>
+            </div>
+
+            <div className="supports-grid">
+              {/* FAQ */}
+              <div className="supports-section">
+                <h2 className="supports-section-title">
+                  Часто задаваемые вопросы
+                </h2>
+                <div className="faq-list">
+                  {filteredFaqs.length === 0 && (
+                    <p className="supports-empty">
+                      {faqSearch
+                        ? "Ничего не найдено. Попробуйте другой запрос или создайте тикет."
+                        : "Вопросов пока нет"}
+                    </p>
+                  )}
+                  {filteredFaqs.map((faq) => {
+                    const id = faq.documentId;
+                    const isOpen = openFaq === id;
+                    return (
+                      <div
+                        key={id}
+                        className={`faq-item ${isOpen ? "active" : ""}`}
+                      >
+                        <button
+                          onClick={() => setOpenFaq(isOpen ? null : id)}
+                          className="faq-question"
+                        >
+                          {faq.question || faq.Question || "Вопрос без названия"}
+                        </button>
+                        <div className="faq-answer">
+                          {faq.answer || faq.Answer || "Ответ отсутствует"}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {/* Кнопка, если есть ссылка */}
-                {(contact.Link ||
-                  contact.link ||
-                  contact.Url ||
-                  contact.url) && (
-                  <a
-                    href={
-                      contact.Link || contact.link || contact.Url || contact.url
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      padding: "8px 16px",
-                      background: "#8f3ed1",
-                      color: "#fff",
-                      borderRadius: "20px",
-                      textDecoration: "none",
-                      fontSize: "14px",
-                    }}
+              </div>
+
+              {/* Контакты */}
+              <div className="supports-section">
+                <h2 className="supports-section-title">Связаться с нами</h2>
+                <div className="contact-cards">
+                  {contacts.length === 0 && (
+                    <p className="supports-empty">Контактов пока нет</p>
+                  )}
+                  {contacts.map((contact) => (
+                    <div key={contact.documentId} className="contact-card">
+                      <div>
+                        <h3>{contactTitle(contact)}</h3>
+                        <p>{contactDesc(contact)}</p>
+                      </div>
+                      {contactLink(contact) && (
+                        <a
+                          href={contactLink(contact)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="contact-btn"
+                        >
+                          {contactBtn(contact)}
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Требования */}
+              <div className="supports-section">
+                <h2 className="supports-section-title">
+                  Системные требования
+                </h2>
+                <div className="requirements">
+                  {requirements.length === 0 && (
+                    <p className="supports-empty">Требований пока нет</p>
+                  )}
+                  {requirements.map((req) => (
+                    <div key={req.documentId} className="req-item">
+                      <span className="req-label">
+                        {req.label || req.Label || "Параметр"}
+                      </span>
+                      <span className="req-value">
+                        {req.value || req.Value || ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Полезные ссылки */}
+              <div className="supports-section">
+                <h2 className="supports-section-title">Полезные ссылки</h2>
+                <div className="useful-links">
+                  {links.length === 0 && (
+                    <p className="supports-empty">Ссылок пока нет</p>
+                  )}
+                  {links.map((link) => (
+                    <a
+                      key={link.documentId}
+                      href={link.url || link.Url || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="useful-link"
+                    >
+                      {link.text || link.Text || "Ссылка"}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ===== TAB: Мои тикеты ===== */}
+        {tab === "tickets" && (
+          <div className="supports-section tickets-section">
+            <h2 className="supports-section-title">Мои тикеты</h2>
+
+            {ticketsLoading ? (
+              <p className="supports-empty">Загрузка тикетов...</p>
+            ) : tickets.length === 0 ? (
+              <div className="tickets-empty">
+                <p className="supports-empty">
+                  У вас пока нет тикетов. Если нужна помощь — создайте новый тикет.
+                </p>
+                <button onClick={() => setTab("new")} className="ticket-submit">
+                  Создать тикет
+                </button>
+              </div>
+            ) : (
+              <div className="tickets-list">
+                {tickets.map((t) => {
+                  const status = STATUS_LABELS[t.Status || "open"] || STATUS_LABELS.open;
+                  const isActive = selectedTicket?.id === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      className={`ticket-row ${isActive ? "active" : ""}`}
+                      onClick={() => setSelectedTicket(isActive ? null : t)}
+                    >
+                      <div className="ticket-row-main">
+                        <span className="ticket-number">
+                          {t.TicketNumber || t.id}
+                        </span>
+                        <span className="ticket-subject">{t.Subject}</span>
+                      </div>
+                      <div className="ticket-row-side">
+                        <span className={`ticket-status-badge ${status.className}`}>
+                          {status.label}
+                        </span>
+                        <span className="ticket-date">
+                          {t.createdAt
+                            ? new Date(t.createdAt).toLocaleDateString("ru-RU")
+                            : ""}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Детали тикета */}
+            {selectedTicket && (
+              <div className="ticket-detail">
+                <div className="ticket-detail-head">
+                  <h3>
+                    {selectedTicket.Subject}
+                    <span className="ticket-number">
+                      {selectedTicket.TicketNumber}
+                    </span>
+                  </h3>
+                  <button
+                    onClick={() => setSelectedTicket(null)}
+                    className="ticket-close"
                   >
-                    {contact.ButtonText || contact.buttonText || "Перейти"}
-                  </a>
+                    ×
+                  </button>
+                </div>
+                <div className="ticket-detail-meta">
+                  <span>
+                    Категория:{" "}
+                    {TICKET_CATEGORIES.find(
+                      (c) => c.value === selectedTicket.Category
+                    )?.label || selectedTicket.Category || "—"}
+                  </span>
+                  <span>
+                    Приоритет:{" "}
+                    {TICKET_PRIORITIES.find(
+                      (p) => p.value === selectedTicket.Priority
+                    )?.label || selectedTicket.Priority || "—"}
+                  </span>
+                  <span>
+                    Создан:{" "}
+                    {selectedTicket.createdAt
+                      ? new Date(selectedTicket.createdAt).toLocaleString("ru-RU")
+                      : "—"}
+                  </span>
+                </div>
+                <div className="ticket-detail-message">
+                  {selectedTicket.Message}
+                </div>
+                {selectedTicket.Response ? (
+                  <div className="ticket-response">
+                    <div className="ticket-response-head">
+                      <Icon name="headset" size={18} /> Ответ поддержки
+                      {selectedTicket.ResponseDate && (
+                        <span className="ticket-date">
+                          {new Date(selectedTicket.ResponseDate).toLocaleString("ru-RU")}
+                        </span>
+                      )}
+                    </div>
+                    <p>{selectedTicket.Response}</p>
+                  </div>
+                ) : (
+                  <div className="ticket-waiting">
+                    <Icon name="clock" size={16} /> Ожидайте ответа — уведомление придёт на{" "}
+                    <b>{selectedTicket.ContactEmail || "вашу почту"}</b>
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 3. СИСТЕМНЫЕ ТРЕБОВАНИЯ (REQUIREMENTS) */}
-        <div
-          style={{
-            background: "#1a1a1a",
-            borderRadius: "20px",
-            padding: "25px",
-            border: "1px solid #2a2a2a",
-          }}
-        >
-          <h2
-            style={{
-              color: "#fff",
-              marginTop: 0,
-              borderBottom: "2px solid #8f3ed1",
-              paddingBottom: "10px",
-              display: "inline-block",
-            }}
-          >
-            Системные требования
-          </h2>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "12px",
-              marginTop: "20px",
-            }}
-          >
-            {requirements.length === 0 && (
-              <p style={{ color: "#aaa" }}>Требований пока нет</p>
             )}
-            {requirements.map((req) => (
-              <div
-                key={req.documentId}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  borderBottom: "1px dashed #333",
-                  paddingBottom: "8px",
-                }}
-              >
-                <span style={{ color: "#8f3ed1", fontWeight: "bold" }}>
-                  •{" "}
-                  {req.Title || req.title || req.Name || req.name || "Параметр"}
-                </span>
-                <span style={{ color: "#fff" }}>
-                  {req.Value ||
-                    req.value ||
-                    req.Description ||
-                    req.description ||
-                    ""}
-                </span>
+          </div>
+        )}
+
+        {/* ===== TAB: Новый тикет ===== */}
+        {tab === "new" && (
+          <div className="supports-section ticket-form-section">
+            <h2 className="supports-section-title">Новый тикет</h2>
+            <div className="ticket-form">
+              <div className="ticket-form-field">
+                <label>Тема обращения *</label>
+                <input
+                  type="text"
+                  placeholder="Кратко опишите проблему"
+                  value={ticketForm.Subject}
+                  onChange={(e) =>
+                    setTicketForm({ ...ticketForm, Subject: e.target.value })
+                  }
+                  className="ticket-input"
+                />
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* 4. ПОЛЕЗНЫЕ ССЫЛКИ (USEFUL LINKS) */}
-        <div
-          style={{
-            background: "#1a1a1a",
-            borderRadius: "20px",
-            padding: "25px",
-            border: "1px solid #2a2a2a",
-          }}
-        >
-          <h2
-            style={{
-              color: "#fff",
-              marginTop: 0,
-              borderBottom: "2px solid #8f3ed1",
-              paddingBottom: "10px",
-              display: "inline-block",
-            }}
-          >
-            Полезные ссылки
-          </h2>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "12px",
-              marginTop: "20px",
-            }}
-          >
-            {links.length === 0 && (
-              <p style={{ color: "#aaa" }}>Ссылок пока нет</p>
-            )}
-            {links.map((link) => (
-              <a
-                key={link.documentId}
-                href={link.Url || link.url || link.Link || link.link || "#"}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  color: "#b4a8ff",
-                  textDecoration: "none",
-                  fontSize: "15px",
-                }}
+              <div className="ticket-form-row">
+                <div className="ticket-form-field">
+                  <label>Категория</label>
+                  <select
+                    value={ticketForm.Category}
+                    onChange={(e) =>
+                      setTicketForm({ ...ticketForm, Category: e.target.value })
+                    }
+                    className="ticket-select"
+                  >
+                    {TICKET_CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="ticket-form-field">
+                  <label>Приоритет</label>
+                  <select
+                    value={ticketForm.Priority}
+                    onChange={(e) =>
+                      setTicketForm({ ...ticketForm, Priority: e.target.value })
+                    }
+                    className="ticket-select"
+                  >
+                    {TICKET_PRIORITIES.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="ticket-form-field">
+                <label>Email для ответа *</label>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={ticketForm.ContactEmail}
+                  onChange={(e) =>
+                    setTicketForm({ ...ticketForm, ContactEmail: e.target.value })
+                  }
+                  className="ticket-input"
+                />
+              </div>
+
+              <div className="ticket-form-field">
+                <label>Описание проблемы *</label>
+                <textarea
+                  placeholder="Опишите проблему как можно подробнее: что произошло, когда и какие действия предшествовали"
+                  value={ticketForm.Message}
+                  onChange={(e) =>
+                    setTicketForm({ ...ticketForm, Message: e.target.value })
+                  }
+                  className="ticket-textarea"
+                />
+              </div>
+
+              <button
+                onClick={handleCreateTicket}
+                disabled={
+                  submitting ||
+                  !ticketForm.Subject.trim() ||
+                  !ticketForm.Message.trim() ||
+                  !ticketForm.ContactEmail.trim()
+                }
+                className="ticket-submit"
               >
-                {link.Title || link.title || link.Name || link.name || "Ссылка"}
-              </a>
-            ))}
+                {submitting ? "Отправка..." : "Отправить тикет"}
+              </button>
+              <p className="ticket-form-hint">
+                Не нашли ответ? Посмотрите{" "}
+                <Link href="/faq" className="ticket-hint-link">
+                  страницу FAQ
+                </Link>
+                .
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
