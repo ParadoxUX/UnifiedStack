@@ -80,3 +80,44 @@ export async function fetchBanners() {
   const result = await fetchFromStrapi("banners");
   return Array.isArray(result) ? result : [];
 }
+
+// ==========================================
+// Нормализация игры (для страницы /store/[id])
+// ==========================================
+export function normalizeGame(raw: any) {
+  if (!raw) return null;
+  const g = Array.isArray(raw) ? raw[0] : raw;
+  if (!g) return null;
+
+  const screenshots = Array.isArray(g.Screenshots)
+    ? g.Screenshots.map((img: any) => `http://127.0.0.1:1337${img.url}`)
+    : g.Screenshots?.url
+    ? [`http://127.0.0.1:1337${g.Screenshots.url}`]
+    : [];
+
+  const tags =
+    typeof g.Tags === "string"
+      ? g.Tags.split(",")
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      : [];
+
+  return {
+    id: g.documentId ?? g.id,
+    title: g.Title || "Без названия",
+    price: `${g.Price ?? 0} ₽`,
+    priceNum: g.Price ?? 0,
+    description: g.Description || "Описание отсутствует",
+    developer: g.developer || "Неизвестно",
+    genre: g.Genre || "Не указан",
+    releaseDate: g.game_year ?? "—",
+    image: g.Cover?.url
+      ? `http://127.0.0.1:1337${g.Cover.url}`
+      : "/placeholder.png",
+    screenshots,
+    videoUrl: g.VideoUrl || null,
+    tags,
+    isSale: g.isSale,
+    oldPrice: g.oldPrice,
+  };
+}
