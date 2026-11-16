@@ -1,0 +1,24 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340" fill="none">
+  <defs>
+    <linearGradient id="cardBg" x1="0" y1="0" x2="600" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="50%" stop-color="#1E1B4B"/>
+      <stop offset="100%" stop-color="#090D16"/>
+    </linearGradient>
+    <linearGradient id="accentLine" x1="150" y1="100" x2="450" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="600" height="340" fill="url(#cardBg)"/>
+  <rect width="600" height="340" fill="url(#grid)"/>
+  <polygon points="300,95 365,132 365,208 300,245 235,208 235,132" stroke="url(#accentLine)" stroke-width="2.5" fill="#0F172A" fill-opacity="0.7"/>
+  <rect x="272" y="152" width="56" height="36" rx="10" stroke="url(#accentLine)" stroke-width="2.2"/>
+  <path d="M286 170H296M291 165V175" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="311" cy="166" r="2.2" fill="#38BDF8"/>
+  <circle cx="317" cy="173" r="2.2" fill="#A855F7"/>
+  <text x="300" y="280" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="13" font-weight="600" letter-spacing="4" text-anchor="middle">UNIFIED STACK</text>
+</svg>

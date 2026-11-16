@@ -1,53 +1,52 @@
 # UnifiedStack
 
-Монорепозиторий проекта Ampligame: Next.js фронтенд + Strapi CMS бэкенд.
+Игровая платформа, магазин цифровых копий и облачный гейминг: **Next.js 16** фронтенд + **Strapi v5** Headless CMS бэкенд.
 
-## Структура
+## Структура проекта
 
-- `frontend/` — Next.js 16 + React 19 + Tailwind 4 (магазин игр, форум, профиль и т.д.)
-- `backend/` — Strapi 5 CMS (API для фронтенда, SQLite по умолчанию)
+- `backend/` — Strapi v5 CMS (API, JWT-авторизация, сервис кошелька, SQLite, автосид 30 игр и тарифов)
+- `frontend/` — Next.js 16 + React 19 + TypeScript (витрина, страница игры в стиле Steam, библиотека, облако, профиль)
+- `docs/` — документация платёжной системы (`docs/payments.md`)
 
 ## Требования
 
-- Node.js 20+
-- npm
+- Node.js `20+` (LTS)
+- npm `10+`
+- Git
 
-## Запуск бэкенда (Strapi)
+## Точная инструкция по запуску
 
-```bash
-cd backend
-npm install
-cp .env.example .env   # Windows: copy .env.example .env
-npm run develop        # API: http://localhost:1337, админка: http://localhost:1337/admin
-```
+### 1. Клонирование репозитория
 
-## Запуск фронтенда (Next.js)
+    git clone [https://github.com/ParadoxUX/UnifiedStack.git](https://github.com/ParadoxUX/UnifiedStack.git)
+    cd UnifiedStack
 
-```bash
-cd frontend
-npm install
-npm run dev            # http://localhost:3000
-```
+### 2. Запуск бэкенда (Strapi v5 — порт 1337)
 
-Фронтенд обращается к Strapi по адресу из `NEXT_PUBLIC_STRAPI_URL` (по умолчанию `http://127.0.0.1:1337`).
-Создайте `frontend/.env.local`, если адрес API отличается:
+Откройте первый терминал и выполните:
 
-```
-NEXT_PUBLIC_STRAPI_URL=http://127.0.0.1:1337
-```
+    cd backend
+    npm install
+    copy .env.example .env
+    npm run develop
 
-## Сборка
+- API: `http://localhost:1337`
+- Админ-панель: `http://localhost:1337/admin` (при первом входе создайте локального администратора)
+- При старте автоматически создаётся SQLite БД (`backend/.tmp/data.db`), загружаются 30 игр с обложками, баннеры и тарифы.
 
-```bash
-cd backend && npm run build
-cd ../frontend && npm run build
-```
+### 3. Запуск фронтенда (Next.js — порт 3000)
 
-## Денежная логика
+Откройте второй терминал и выполните:
 
-Кошелёк, история транзакций и покупки игр: `docs/payments.md`.
-Защита от двойного списания — транзакции PostgreSQL с `SELECT ... FOR UPDATE`, уникальные индексы и `CHECK (balance >= 0)`.
+    cd frontend
+    npm install
+    npm run dev
 
-```bash
-cd backend && node tests/money-e2e.js   # проверка денежной логики
-```
+- Приложение откроется по адресу: `http://localhost:3000`
+- При необходимости укажите URL бэкенда в `frontend/.env.local`: `NEXT_PUBLIC_STRAPI_URL=[http://127.0.0.1:1337](http://127.0.0.1:1337)`
+
+## Сборка и тесты
+
+    cd backend && npm run build
+    cd ../frontend && npm run build
+    cd ../backend && node tests/money-e2e.js

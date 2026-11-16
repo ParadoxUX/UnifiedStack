@@ -1,73 +1,199 @@
 "use client";
 
-/**
- * Набор инлайн SVG-иконок (24x24, fill: currentColor).
- * Используется вместо эмодзи в разделах Community и Supports.
- */
+import React from "react";
 
 export type IconName =
+  | "logo"
+  | "store"
+  | "library"
+  | "sale"
+  | "cloud"
+  | "community"
+  | "settings"
+  | "support"
+  | "faq"
+  | "chevron"
+  | "menu"
+  | "close"
   | "chat"
   | "tools"
   | "trophy"
   | "gamepad"
-  | "help"
   | "user"
   | "users"
   | "fire"
   | "ticket"
   | "edit"
-  | "headset"
   | "clock"
   | "eye"
-  | "plus";
+  | "plus"
+  | "heart";
 
-const PATHS: Record<IconName, React.ReactNode> = {
+const ICONS: Record<IconName, React.ReactNode> = {
+  logo: (
+    <>
+      <polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2" stroke="currentColor" strokeWidth="1.8" fill="none" />
+      <polyline points="7.5 10 12 12.5 16.5 10" stroke="currentColor" strokeWidth="1.8" fill="none" />
+      <line x1="12" y1="12.5" x2="12" y2="17.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="7" r="1.5" fill="currentColor" />
+    </>
+  ),
+  store: (
+    <>
+      <path d="M4 7h16l-1.2 11.2a2 2 0 0 1-2 1.8H7.2a2 2 0 0 1-2-1.8L4 7Z" />
+      <path d="M8 7V5a4 4 0 0 1 8 0v2" />
+      <path d="M9.5 12h5" />
+    </>
+  ),
+  library: (
+    <>
+      <rect x="4" y="4" width="4" height="16" rx="1" />
+      <rect x="10" y="4" width="4" height="16" rx="1" />
+      <path d="M16.2 4.5l3.8 14.8-3.6.9-3.8-14.8 3.6-.9Z" />
+    </>
+  ),
+  sale: (
+    <>
+      <path d="M3 11.5V4h7.5l9.8 9.8a1.5 1.5 0 0 1 0 2.1l-4.4 4.4a1.5 1.5 0 0 1-2.1 0L3 11.5Z" />
+      <circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none" />
+      <path d="M10.5 14.5l4-4" />
+    </>
+  ),
+  cloud: (
+    <>
+      <path d="M6.5 19h11a4.5 4.5 0 0 0 .8-8.9A6 6 0 0 0 6.8 8.3 4.5 4.5 0 0 0 6.5 19Z" />
+      <path d="M12 11v5m0 0l-2-2m2 2l2-2" />
+    </>
+  ),
+  community: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19c0-2.8 2.4-4.5 5.5-4.5s5.5 1.7 5.5 4.5" />
+      <circle cx="16.5" cy="9" r="2.2" />
+      <path d="M16.5 14c2.2 0 4 1.2 4 3.5" />
+    </>
+  ),
+  settings: (
+    <>
+      <polygon points="12 3 19.8 7.5 19.8 16.5 12 21 4.2 16.5 4.2 7.5 12 3" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  support: (
+    <>
+      <path d="M4 13v-1a8 8 0 0 1 16 0v1" />
+      <rect x="3" y="12" width="3.5" height="6" rx="1.5" />
+      <rect x="17.5" y="12" width="3.5" height="6" rx="1.5" />
+      <path d="M21 17v1a3 3 0 0 1-3 3h-4" />
+    </>
+  ),
+  faq: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+      <path d="M9.5 9.2a2.6 2.6 0 0 1 5 .8c0 1.8-2.5 2.2-2.5 3.8" />
+      <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  chevron: <polyline points="6 9 12 15 18 9" />,
+  menu: (
+    <>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="16" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+    </>
+  ),
+  close: (
+    <>
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </>
+  ),
   chat: (
-    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
+    <>
+      <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 4V6a1 1 0 0 1 1-1Z" />
+      <line x1="8" y1="9.5" x2="16" y2="9.5" />
+      <line x1="8" y1="13" x2="13" y2="13" />
+    </>
   ),
   tools: (
-    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+    <>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />
+    </>
   ),
   trophy: (
-    <path d="M18 2H6v2H2v3c0 2.8 2.2 5 5 5h.1c.5 2.3 2.2 4.1 4.4 4.8V19H9v3h6v-3h-2.5v-2.2c2.2-.7 3.9-2.5 4.4-4.8H17c2.8 0 5-2.2 5-5V4h-4V2zM4 7V6h2v3.9C4.8 9.4 4 8.3 4 7zm16 0c0 1.3-.8 2.4-2 2.9V6h2v1z" />
+    <>
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 6H4v2a3 3 0 0 0 3 3" />
+      <path d="M17 6h3v2a3 3 0 0 1-3 3" />
+      <line x1="12" y1="14" x2="12" y2="19" />
+      <line x1="8" y1="19" x2="16" y2="19" />
+    </>
   ),
   gamepad: (
-    <path d="M21.58 16.09l-1.09-7.66A3.996 3.996 0 0 0 16.53 5H7.47C5.48 5 3.79 6.46 3.51 8.43l-1.09 7.66C2.2 17.63 3.39 19 4.94 19c.68 0 1.32-.27 1.8-.75L9 15.5h6l2.25 2.75c.48.48 1.13.75 1.8.75 1.56 0 2.75-1.37 2.53-2.91zM11 11H9v2H8v-2H6v-1h2V8h1v2h2v1zm4-1c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm2 3c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
-  ),
-  help: (
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" />
+    <>
+      <rect x="2" y="6" width="20" height="12" rx="4" />
+      <line x1="6" y1="12" x2="10" y2="12" />
+      <line x1="8" y1="10" x2="8" y2="14" />
+      <circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="17.5" cy="13" r="1" fill="currentColor" stroke="none" />
+    </>
   ),
   user: (
-    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6" />
+    </>
   ),
   users: (
-    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h7v-2.25c0-.86.55-1.85 1.44-2.66A11.3 11.3 0 0 0 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.7V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M3 19.5c0-3 2.7-5 6-5s6 2 6 5" />
+      <circle cx="17" cy="9" r="2.5" />
+      <path d="M17 14.5c2.3 0 4 1.3 4 4" />
+    </>
   ),
   fire: (
-    <path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
+    <path d="M12 2.5c2.5 3.2 6.5 6.3 6.5 11.2a6.5 6.5 0 1 1-13 0c0-2.4 1.2-4.6 2.8-6.2-.2 1.8.8 3.2 2.2 3.2 1.4 0 2.2-1.2 1.9-3.1-.3-1.7-.7-3.4-.4-5.1Z" />
   ),
   ticket: (
-    <path d="M22 10V6c0-1.1-.9-2-2-2H4c-1.1 0-1.99.9-1.99 2v4c1.1 0 1.99.9 1.99 2s-.89 2-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c-1.1 0-2-.9-2-2s.9-2 2-2zm-9 7.5h-2v-2h2v2zm0-4.5h-2v-2h2v2zm0-4.5h-2v-2h2v2z" />
+    <>
+      <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7Z" />
+      <line x1="10" y1="5" x2="10" y2="19" strokeDasharray="2 2" />
+    </>
   ),
   edit: (
-    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-  ),
-  headset: (
-    <path d="M12 1a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 0 0-9-9z" />
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z" />
+    </>
   ),
   clock: (
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15.5 14" />
+    </>
   ),
   eye: (
-    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
+    <>
+      <path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
   ),
-  plus: <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />,
+  plus: (
+    <>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </>
+  ),
+  heart: (
+    <path d="M12 20.5S3.5 15 3.5 8.8A4.8 4.8 0 0 1 12 5.9a4.8 4.8 0 0 1 8.5 2.9c0 6.2-8.5 11.7-8.5 11.7Z" />
+  ),
 };
 
 export default function Icon({
   name,
   size = 20,
-  className,
+  className = "",
 }: {
   name: IconName;
   size?: number;
@@ -78,11 +204,15 @@ export default function Icon({
       viewBox="0 0 24 24"
       width={size}
       height={size}
-      fill="currentColor"
-      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`us-icon ${className}`.trim()}
       aria-hidden="true"
     >
-      {PATHS[name]}
+      {ICONS[name]}
     </svg>
   );
 }

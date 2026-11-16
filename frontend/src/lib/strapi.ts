@@ -127,8 +127,17 @@ export async function fetchRequirements() {
 
 // Баннеры для карусели на главной
 export async function fetchBanners() {
-  const result = await fetchFromStrapi("banners");
-  return Array.isArray(result) ? result : [];
+  try {
+    const result = await fetchFromStrapi("banners?populate[Image]=*&populate[game][populate]=Cover");
+    if (Array.isArray(result) && result.length > 0) return result;
+  } catch {}
+  const games = await fetchGames();
+  return games.slice(0, 12).map((g: any, idx: number) => ({
+    Order: idx + 1,
+    IsTop: idx < 6,
+    Image: g.Cover,
+    game: g,
+  }));
 }
 
 /* ===== Форумы: темы и сообщения ===== */

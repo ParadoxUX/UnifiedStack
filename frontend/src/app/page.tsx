@@ -1,9 +1,12 @@
-import { fetchFromStrapi } from "@/lib/strapi";
+﻿import { fetchFromStrapi } from "@/lib/strapi";
 import GameGrid from "@/components/store/GameGrid";
 import MyLibraryPreview from "@/components/store/MyLibraryPreview";
 import SwiperBanner from "@/components/store/SwiperBanner";
+import Icon from "@/components/ui/Icon";
 
 export const dynamic = "force-dynamic";
+
+const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
 
 export default async function HomePage() {
   let games: any[] = [];
@@ -17,30 +20,27 @@ export default async function HomePage() {
       id: g.documentId ?? g.id,
       title: g.Title || "Без названия",
       price: g.Price ?? 0,
-      description: g.Description || "Описание отсутствует",
-      developer: g.developer || "Неизвестно",
-      genre: g.Genre || "Не указан",
+      description: g.Description || "",
+      developer: g.developer || "Неизвестная студия",
+      genre: g.Genre || "Экшен",
       image: g.Cover?.url
-        ? `http://127.0.0.1:1337${g.Cover.url}`
-        : "/placeholder.png",
+        ? `${STRAPI_URL}${g.Cover.url}`
+        : "/img/game-placeholder.svg",
     }));
-
-    console.log("[home] games.length =", games.length);
-  } catch (error) {
-    console.error("[home] Ошибка Strapi:", error);
+  } catch {
+    games = [];
   }
 
   return (
-    <main>
-      {/* Карусель (ваш SwiperBanner) */}
+    <main className="store-main">
       <SwiperBanner />
-
-      {/* Мои игры (купленные) */}
       <MyLibraryPreview />
 
-      {/* Популярные игры из Strapi */}
       <section className="store-content">
-        <h2 className="store-games-title">Популярные игры</h2>
+        <div className="section-header-row" style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+          <Icon name="fire" size={22} />
+          <h2 className="store-games-title" style={{ margin: 0 }}>Популярное в каталоге</h2>
+        </div>
         <GameGrid games={games} searchQuery="" />
       </section>
     </main>

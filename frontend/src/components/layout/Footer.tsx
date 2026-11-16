@@ -1,27 +1,24 @@
-'use client';
+﻿'use client';
+
+import Link from 'next/link';
+import Icon from '@/components/ui/Icon';
 
 export default function Footer() {
   return (
-    <footer style={{ 
-      padding: '40px 20px', 
-      marginTop: '40px',
-      borderTop: '1px solid rgba(143, 62, 209, 0.2)',
-      textAlign: 'center',
-      color: '#888',
-      fontSize: '13px',
-    }}>
-      <div style={{ marginBottom: '15px' }}>
-        <span style={{ fontWeight: 'bold', background: 'linear-gradient(135deg, #8f3ed1, #00c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '18px', letterSpacing: '2px' }}>
-          AMPLIGAME
-        </span>
+    <footer className="us-footer">
+      <div className="us-footer-brand">
+        <Icon name="logo" size={22} />
+        <span>UNIFIED STACK</span>
       </div>
-      <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
-        <a href="/supports" style={{ color: '#888', textDecoration: 'none' }}>Поддержка</a>
-        <a href="/supports" style={{ color: '#888', textDecoration: 'none' }}>Правила</a>
-        <a href="/supports" style={{ color: '#888', textDecoration: 'none' }}>Политика</a>
-        <a href="/supports" style={{ color: '#888', textDecoration: 'none' }}>Условия</a>
-      </div>
-      <p style={{ margin: 0 }}>© 2026 AMPLIGAME. Все права защищены.</p>
+
+      <nav className="us-footer-links">
+        <Link href="/store">Каталог</Link>
+        <Link href="/cloud">Облачный гейминг</Link>
+        <Link href="/faq">FAQ</Link>
+        <Link href="/supports">Поддержка</Link>
+      </nav>
+
+      <p className="us-footer-copy">© {new Date().getFullYear()} UnifiedStack. Цифровая игровая платформа.</p>
     </footer>
   );
 }

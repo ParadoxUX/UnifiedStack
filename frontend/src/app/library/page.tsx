@@ -1,55 +1,109 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { getJSON } from '@/lib/storage';
+﻿'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { getJSON, setJSON } from '@/lib/storage';
 import { getWishlist } from '@/lib/wishlist';
 import { products } from '@/data/products';
 import { getCards, getBadges, getCraftableGames, craftBadge, SteamCard } from '@/lib/steamCards';
+import { fetchLibrary } from '@/lib/wallet';
+import { fetchGames } from '@/lib/strapi';
 import LibraryCard from '@/components/library/LibraryCard';
 import SteamCardComp from '@/components/library/SteamCard';
 import GameCard from '@/components/store/GameCard';
 import EmptyState from '@/components/ui/EmptyState';
 import { showToast } from '@/lib/toast';
 
+const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://127.0.0.1:1337';
+
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<'games' | 'wishlist' | 'cards'>('games');
   const [games, setGames] = useState<any[]>([]);
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [wishlistGames, setWishlistGames] = useState<any[]>([]);
   const [cards, setCards] = useState<SteamCard[]>([]);
   const [badges, setBadges] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
 
-  const loadData = () => {
-    // Дедуплицируем игры
-    const rawGames = getJSON<any[]>('user_game_library', []);
-    const uniqueGames = rawGames
-      .filter((g, i, arr) => g && g.id && arr.findIndex(x => x && x.id === g.id) === i)
-      .map(g => {
-        // Если нет image, берем из products
-        if (!g.image && products[g.id]) {
-          return { ...g, image: products[g.id].image };
-        }
-        return g;
+  const loadData = useCallback(async () => {
+    const localGames = getJSON<any[]>('user_game_library', []);
+    let strapiItems: any[] = [];
+    let allCatalogGames: any[] = [];
+
+    try {
+      allCatalogGames = await fetchGames();
+    } catch {}
+
+    try {
+      strapiItems = await fetchLibrary();
+    } catch {}
+
+    const mergedMap = new Map<string, any>();
+
+    // 1. Сначала берём купленные игры из Strapi
+    for (const item of strapiItems) {
+      if (item.status === 'refunded' || !item.game) continue;
+      const docId = String(item.game.documentId || item.game.id);
+      const fullGame = allCatalogGames.find(
+        (cg) => String(cg.documentId) === docId || String(cg.id) === String(item.game.id)
+      );
+      const coverUrl = fullGame?.Cover?.url
+        ? `${STRAPI_URL}${fullGame.Cover.url}`
+        : '/img/game-placeholder.svg';
+
+      mergedMap.set(docId, {
+        id: docId,
+        title: item.game.Title || fullGame?.Title || 'Игра',
+        image: coverUrl,
+        purchaseDate: item.purchasedAt
+          ? new Date(item.purchasedAt).toLocaleDateString('ru-RU')
+          : 'В коллекции',
       });
-    setGames(uniqueGames);
+    }
 
-    // Wishlist уже дедуплицирован в getWishlist()
-    setWishlist(getWishlist());
+    // 2. Добавляем игры из локального хранилища, если их нет в списке
+    for (const lg of localGames) {
+      if (!lg || !lg.id) continue;
+      const key = String(lg.id);
+      if (!mergedMap.has(key)) {
+        const fullGame = allCatalogGames.find(
+          (cg) => String(cg.documentId) === key || cg.Title === lg.title
+        );
+        const coverUrl = fullGame?.Cover?.url
+          ? `${STRAPI_URL}${fullGame.Cover.url}`
+          : lg.image || products[key]?.image || '/img/game-placeholder.svg';
 
-    // Карточки уже отфильтрованы в getCards()
+        mergedMap.set(key, {
+          ...lg,
+          id: key,
+          image: coverUrl,
+        });
+      }
+    }
+
+    const finalGames = Array.from(mergedMap.values());
+    setGames(finalGames);
+    setJSON('user_game_library', finalGames);
+
+    // Желаемое сопоставляем с реальными играми из Strapi
+    const wishIds = getWishlist();
+    const matchedWish = allCatalogGames.filter((cg) => wishIds.includes(String(cg.documentId)));
+    setWishlistGames(matchedWish);
+
     setCards(getCards());
     setBadges(getBadges());
-  };
+  }, []);
 
   useEffect(() => {
     setMounted(true);
     loadData();
-  }, []);
+    window.addEventListener('us:library-updated', loadData);
+    return () => window.removeEventListener('us:library-updated', loadData);
+  }, [loadData]);
 
   const handleRemoveGame = (id: string) => {
-    const updated = games.filter(g => g.id !== id);
+    const updated = games.filter((g) => String(g.id) !== String(id));
     setGames(updated);
-    localStorage.setItem('user_game_library', JSON.stringify(updated));
-    showToast('Игра удалена из библиотеки', 'info');
+    setJSON('user_game_library', updated);
+    showToast('Игра скрыта из локальной библиотеки', 'info');
   };
 
   const handleCraft = (gameId: string) => {
@@ -67,7 +121,6 @@ export default function LibraryPage() {
 
   const craftable = getCraftableGames();
 
-  // Группировка карточек
   const cardsByGame = cards.reduce((acc: Record<string, SteamCard[]>, c) => {
     if (!acc[c.gameId]) acc[c.gameId] = [];
     acc[c.gameId].push(c);
@@ -76,14 +129,26 @@ export default function LibraryPage() {
 
   return (
     <div className="library-page" style={{ display: 'block', padding: '20px' }}>
-      <div className="library-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <button onClick={() => { setActiveTab('games'); loadData(); }} style={{ padding: '10px 24px', cursor: 'pointer', background: activeTab === 'games' ? '#8f3ed1' : 'rgba(26,26,26,0.8)', color: '#fff', border: '1px solid #8f3ed1', borderRadius: '20px', fontWeight: 'bold' }}>
+      <div className="library-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('games'); loadData(); }}
+          className={`us-tab-pill ${activeTab === 'games' ? 'active' : ''}`}
+        >
           Библиотека ({games.length})
         </button>
-        <button onClick={() => { setActiveTab('wishlist'); loadData(); }} style={{ padding: '10px 24px', cursor: 'pointer', background: activeTab === 'wishlist' ? '#8f3ed1' : 'rgba(26,26,26,0.8)', color: '#fff', border: '1px solid #8f3ed1', borderRadius: '20px', fontWeight: 'bold' }}>
-          Wishlist ({wishlist.length})
+        <button
+          type="button"
+          onClick={() => { setActiveTab('wishlist'); loadData(); }}
+          className={`us-tab-pill ${activeTab === 'wishlist' ? 'active' : ''}`}
+        >
+          Желаемое ({wishlistGames.length})
         </button>
-        <button onClick={() => { setActiveTab('cards'); loadData(); }} style={{ padding: '10px 24px', cursor: 'pointer', background: activeTab === 'cards' ? '#8f3ed1' : 'rgba(26,26,26,0.8)', color: '#fff', border: '1px solid #8f3ed1', borderRadius: '20px', fontWeight: 'bold' }}>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('cards'); loadData(); }}
+          className={`us-tab-pill ${activeTab === 'cards' ? 'active' : ''}`}
+        >
           Карточки ({cards.length})
         </button>
       </div>
@@ -92,10 +157,17 @@ export default function LibraryPage() {
         <div>
           <h2 className="library-title">Моя библиотека</h2>
           {games.length === 0 ? (
-            <EmptyState desc="В библиотеке пока нет игр." linkText="Перейти в магазин" linkHref="/store" />
+            <EmptyState
+              title="Библиотека пуста"
+              desc="Купленные в каталоге игры появятся здесь автоматически."
+              linkText="Перейти в магазин"
+              linkHref="/store"
+            />
           ) : (
             <div className="library-grid">
-              {games.map((g, i) => <LibraryCard key={`${g.id}_${i}`} game={g} onRemove={handleRemoveGame} />)}
+              {games.map((g, i) => (
+                <LibraryCard key={`${g.id}_${i}`} game={g} onRemove={handleRemoveGame} />
+              ))}
             </div>
           )}
         </div>
@@ -104,15 +176,18 @@ export default function LibraryPage() {
       {activeTab === 'wishlist' && (
         <div>
           <h2 className="library-title">Список желаемого</h2>
-          {wishlist.length === 0 ? (
-            <EmptyState desc="Список желаемого пуст." linkText="Перейти в магазин" linkHref="/store" />
+          {wishlistGames.length === 0 ? (
+            <EmptyState
+              title="В списке желаемого пока пусто"
+              desc="Нажимайте на сердечко на карточках игр, чтобы сохранять их сюда."
+              linkText="Перейти в магазин"
+              linkHref="/store"
+            />
           ) : (
             <div className="games-grid">
-              {wishlist.map((gameId, i) => {
-                const product = products[gameId];
-                if (!product) return null;
-                return <GameCard key={`${gameId}_${i}`} game={product} onWishlistToggle={loadData} />;
-              })}
+              {wishlistGames.map((game) => (
+                <GameCard key={game.documentId} game={game} onWishlistToggle={loadData} />
+              ))}
             </div>
           )}
         </div>
@@ -120,15 +195,15 @@ export default function LibraryPage() {
 
       {activeTab === 'cards' && (
         <div>
-          <h2 className="library-title">Steam-карточки</h2>
+          <h2 className="library-title">Коллекционные карточки</h2>
 
           {craftable.length > 0 && (
-            <div style={{ background: 'linear-gradient(135deg, rgba(143,62,209,0.15), rgba(0,200,255,0.1))', border: '1px solid #8f3ed1', borderRadius: '15px', padding: '20px', marginBottom: '25px' }}>
-              <h3 style={{ color: '#b4a8ff', margin: '0 0 15px 0', fontSize: '18px' }}>Доступно для крафта</h3>
-              {craftable.map(g => (
-                <div key={g.gameId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px 15px', borderRadius: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-                  <span style={{ color: '#fff', fontWeight: 'bold' }}>{g.gameTitle}</span>
-                  <button onClick={() => handleCraft(g.gameId)} style={{ padding: '8px 20px', background: '#4caf50', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>
+            <div className="us-craft-banner">
+              <h3>Доступно для крафта</h3>
+              {craftable.map((g) => (
+                <div key={g.gameId} className="us-craft-row">
+                  <span>{g.gameTitle}</span>
+                  <button type="button" onClick={() => handleCraft(g.gameId)} className="btn-auth-launch">
                     Скрафтить значок
                   </button>
                 </div>
@@ -138,13 +213,12 @@ export default function LibraryPage() {
 
           {badges.length > 0 && (
             <div style={{ marginBottom: '30px' }}>
-              <h3 style={{ color: '#b4a8ff', margin: '0 0 15px 0', fontSize: '18px' }}>Ваши значки</h3>
+              <h3 style={{ color: '#c4b5fd', margin: '0 0 15px 0', fontSize: '18px' }}>Ваши значки</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
                 {badges.map((b, i) => (
-                  <div key={`${b.id}_${i}`} style={{ background: 'linear-gradient(135deg, rgba(143,62,209,0.25), rgba(161,16,206,0.15))', border: '1px solid #8f3ed1', borderRadius: '15px', padding: '15px', textAlign: 'center' }}>
-                    <svg viewBox="0 0 24 24" width="36" height="36" fill="#ffaa00" style={{ margin: '0 auto 10px' }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    <div style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold' }}>{b.gameTitle}</div>
-                    <div style={{ color: '#888', fontSize: '11px', marginTop: '5px' }}>{b.craftedDate}</div>
+                  <div key={`${b.id}_${i}`} className="us-badge-card">
+                    <div style={{ color: '#f8fafc', fontSize: '13px', fontWeight: 'bold' }}>{b.gameTitle}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '5px' }}>{b.craftedDate}</div>
                   </div>
                 ))}
               </div>
@@ -152,17 +226,23 @@ export default function LibraryPage() {
           )}
 
           {cards.length === 0 ? (
-            <EmptyState desc="У вас пока нет карточек. Купите игру — получите 3 карточки!" linkText="Перейти в магазин" linkHref="/store" />
+            <EmptyState
+              title="Карточек пока нет"
+              desc="При покупке каждой игры вы получаете набор из 3 коллекционных карточек."
+              linkText="Перейти в магазин"
+              linkHref="/store"
+            />
           ) : (
             <div>
-              <h3 style={{ color: '#b4a8ff', margin: '0 0 15px 0', fontSize: '18px' }}>Все ваши карточки</h3>
               {Object.entries(cardsByGame).map(([gameId, gameCards]) => {
-                const uniqueIndices = new Set(gameCards.map(c => c.index));
+                const uniqueIndices = new Set(gameCards.map((c) => c.index));
                 return (
                   <div key={gameId} style={{ marginBottom: '25px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
                       <h4 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>{gameCards[0].gameTitle}</h4>
-                      <span style={{ color: uniqueIndices.size >= 5 ? '#4caf50' : '#b4a8ff', fontWeight: 'bold', fontSize: '14px' }}>{uniqueIndices.size} / 5</span>
+                      <span style={{ color: uniqueIndices.size >= 5 ? '#4ade80' : '#c4b5fd', fontWeight: 'bold', fontSize: '14px' }}>
+                        {uniqueIndices.size} / 5
+                      </span>
                     </div>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       {gameCards.map((c, i) => (

@@ -4,6 +4,7 @@ import TopBar from "@/components/layout/TopBar";
 import Footer from "@/components/layout/Footer";
 import ScrollTop from "@/components/layout/ScrollTop";
 import AppInit from "@/components/AppInit";
+import SaturnLoader from "@/components/ui/SaturnLoader";
 import { LangProvider } from "@/lib/i18n";
 
 import "@/styles/style.css";
@@ -19,10 +20,11 @@ import "@/styles/mobile.css";
 import "@/styles/friends.css";
 import "@/styles/forums.css";
 import "@/styles/poisk.css";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AMPLIGAME",
-  description: "Игровая платформа",
+  title: "UnifiedStack — Цифровая игровая платформа",
+  description: "Магазин игр, библиотека, облачный гейминг и комьюнити",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -33,6 +35,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body suppressHydrationWarning>
         <LangProvider>
+          <SaturnLoader overlay={true} />
           <AppInit />
           <div className="app">
             <Sidebar />

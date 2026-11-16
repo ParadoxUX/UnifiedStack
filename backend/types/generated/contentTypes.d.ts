@@ -893,32 +893,6 @@ export interface ApiGameGame extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiGame1Game1 extends Struct.CollectionTypeSchema {
-  collectionName: 'game1s';
-  info: {
-    displayName: 'Game1';
-    pluralName: 'game1s';
-    singularName: 'game1';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    isSale: Schema.Attribute.Boolean;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::game1.game1'> &
-      Schema.Attribute.Private;
-    oldPrice: Schema.Attribute.Integer;
-    publishedAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
 export interface ApiGlobalGlobal extends Struct.SingleTypeSchema {
   collectionName: 'globals';
   info: {
@@ -1828,7 +1802,6 @@ declare module '@strapi/strapi' {
       'api::forum-post.forum-post': ApiForumPostForumPost;
       'api::forum-topic.forum-topic': ApiForumTopicForumTopic;
       'api::game.game': ApiGameGame;
-      'api::game1.game1': ApiGame1Game1;
       'api::global.global': ApiGlobalGlobal;
       'api::group.group': ApiGroupGroup;
       'api::library-item.library-item': ApiLibraryItemLibraryItem;
