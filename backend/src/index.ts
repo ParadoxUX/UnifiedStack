@@ -66,9 +66,11 @@ const CATALOG_GAMES = [
 ];
 
 /**
- * Дополнения (DLC и издания) для отдельных игр.
+ * Дополнения (DLC и издания) для игр каталога — по образцу Steam.
+ *
  * Идемпотентно: дополнение ищется по паре (игра, Title).
  * Издание с includesBaseGame=true выдаёт базовую игру в библиотеку при покупке.
+ * `game` — slug из CATALOG_GAMES; связь с записью ищется по Title.
  */
 const GAME_ADDONS: Array<{
   game: string;
@@ -81,6 +83,7 @@ const GAME_ADDONS: Array<{
   Description: string;
   position?: number;
 }> = [
+  // --- The Witcher 3 ---
   {
     game: 'the-witcher-3',
     Title: 'Hearts of Stone',
@@ -112,6 +115,465 @@ const GAME_ADDONS: Array<{
     position: 3,
     Description:
       'Полное издание: базовая игра, Hearts of Stone и Blood and Wine, весь набор бесплатных DLC и обновление для next-gen.',
+  },
+
+  // --- Cyberpunk 2077 ---
+  {
+    game: 'cyberpunk-2077',
+    Title: 'Phantom Liberty',
+    kind: 'dlc',
+    Price: 1499,
+    oldPrice: 1899,
+    isSale: true,
+    position: 1,
+    Description:
+      'Шпионский триллер в Найт-Сити: новые районы Догтауна, ветка с Сонми и переработанное дерево навыков.',
+  },
+  {
+    game: 'cyberpunk-2077',
+    Title: 'Ultimate Edition',
+    kind: 'edition',
+    Price: 2799,
+    oldPrice: 3599,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Игра и Phantom Liberty в одном комплекте, включая обновление 2.0 с новой системой полиции и киберware.',
+  },
+
+  // --- Starfield ---
+  {
+    game: 'starfield',
+    Title: 'Shattered Space',
+    kind: 'dlc',
+    Price: 1299,
+    position: 1,
+    Description:
+      'Сюжетное дополнение: планета Варуун-Кай, дом Дома Варуун, новые локации и оружие.',
+  },
+  {
+    game: 'starfield',
+    Title: 'Premium Edition',
+    kind: 'edition',
+    Price: 3299,
+    oldPrice: 3999,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Игра, доступ к Shattered Space, расширенный набор цифровых бонусов и скинпак Constellation.',
+  },
+
+  // --- GTA V ---
+  {
+    game: 'gta-v',
+    Title: 'Criminal Enterprise Starter Pack',
+    kind: 'dlc',
+    Price: 749,
+    oldPrice: 999,
+    isSale: true,
+    position: 1,
+    Description:
+      'Стартовый набор для GTA Online: недвижимость, транспорт и деньги на старт криминальной карьеры.',
+  },
+  {
+    game: 'gta-v',
+    Title: 'GTA+ на 1 месяц',
+    kind: 'dlc',
+    Price: 449,
+    position: 2,
+    Description:
+      'Подписка GTA Online: ежемесячные начисления, скидки на транспорт и бонусные награды.',
+  },
+
+  // --- Red Dead Redemption 2 ---
+  {
+    game: 'red-dead-redemption-2',
+    Title: 'Ultimate Edition Upgrade',
+    kind: 'dlc',
+    Price: 899,
+    position: 1,
+    Description:
+      'Апгрейд до Ultimate: банковское ограбление, чистокровный конь, дополнительные скидки в RDR Online.',
+  },
+  {
+    game: 'red-dead-redemption-2',
+    Title: 'Ultimate Edition',
+    kind: 'edition',
+    Price: 2999,
+    oldPrice: 3499,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Полная версия с бонусами режима Red Dead Online и набором дополнительных миссий.',
+  },
+
+  // --- Elden Ring ---
+  {
+    game: 'elden-ring',
+    Title: 'Shadow of the Erdtree',
+    kind: 'dlc',
+    Price: 1849,
+    oldPrice: 2299,
+    isSale: true,
+    position: 1,
+    Description:
+      'Крупное дополнение: Земля Теней, новые боссы, оружие и наследие Микеллы. Требуется базовая игра.',
+  },
+  {
+    game: 'elden-ring',
+    Title: 'Shadow of the Erdtree Edition',
+    kind: 'edition',
+    Price: 3499,
+    oldPrice: 4299,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Elden Ring и Shadow of the Erdtree вместе — оптимальный старт для новых Игроков.',
+  },
+
+  // --- Assassin's Creed I ---
+  {
+    game: 'assassin-s-creed-i',
+    Title: 'Director\u2019s Cut Upgrade',
+    kind: 'dlc',
+    Price: 249,
+    oldPrice: 349,
+    isSale: true,
+    position: 1,
+    Description:
+      'Расширенное издание классики: дополнительные типы расследований и улики в Акре и Дамаске.',
+  },
+
+  // --- Hogwarts Legacy ---
+  {
+    game: 'hogwarts-legacy',
+    Title: 'Dark Arts Pack',
+    kind: 'dlc',
+    Price: 599,
+    oldPrice: 799,
+    isSale: true,
+    position: 1,
+    Description:
+      'Набор тёмных искусств: арена, косметика и облик тёмного волшебника.',
+  },
+  {
+    game: 'hogwarts-legacy',
+    Title: 'Digital Deluxe Edition',
+    kind: 'edition',
+    Price: 2399,
+    oldPrice: 2999,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Игра и Dark Arts Pack, бонусная косметика и маска Оникса гиппогрифа.',
+  },
+
+  // --- Forza Horizon 5 ---
+  {
+    game: 'forza-horizon-5',
+    Title: 'Hot Wheels Expansion',
+    kind: 'dlc',
+    Price: 899,
+    position: 1,
+    Description:
+      'Горячие колёса: треки Orange Track среди небес Мексики, новые машины и награды.',
+  },
+  {
+    game: 'forza-horizon-5',
+    Title: 'Rally Adventure',
+    kind: 'dlc',
+    Price: 999,
+    oldPrice: 1199,
+    isSale: true,
+    position: 2,
+    Description:
+      'Раллийная Камино-Мексико: 16 новых автомобилей, ралли-трассы и режим Forza Rally.',
+  },
+  {
+    game: 'forza-horizon-5',
+    Title: 'Premium Edition',
+    kind: 'edition',
+    Price: 3299,
+    oldPrice: 3999,
+    isSale: true,
+    includesBaseGame: true,
+    position: 3,
+    Description:
+      'Игра, оба расширения, VIP-статус и Welcome Pack.',
+  },
+
+  // --- Resident Evil 4 ---
+  {
+    game: 'resident-evil-4',
+    Title: 'Seperate Ways',
+    kind: 'dlc',
+    Price: 799,
+    oldPrice: 999,
+    isSale: true,
+    position: 1,
+    Description:
+      'Кампания за Аду Вонг: параллельная сюжетная линия и новые сценарии Mercenaries.',
+  },
+  {
+    game: 'resident-evil-4',
+    Title: 'Gold Edition',
+    kind: 'edition',
+    Price: 2499,
+    oldPrice: 2999,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Ремейк, Separate Ways, костюмы и аксессуары из Deluxe Edition в одном комплекте.',
+  },
+
+  // --- God of War ---
+  {
+    game: 'god-of-war',
+    Title: 'Digital Deluxe Edition Upgrade',
+    kind: 'dlc',
+    Price: 499,
+    position: 1,
+    Description:
+      'Костюмы Death\u2019s Vow, щит Exile и цифровой артбук с саундтреком.',
+  },
+
+  // --- Spider-Man Remastered ---
+  {
+    game: 'spider-man-remastered',
+    Title: 'City That Never Sleeps',
+    kind: 'dlc',
+    Price: 999,
+    oldPrice: 1299,
+    isSale: true,
+    position: 1,
+    Description:
+      'Три эпизода в Нью-Йорке: Чёрная кошка, Silver Sable и преступный клан Мэйсона.',
+  },
+  {
+    game: 'spider-man-remastered',
+    Title: 'Deluxe Edition',
+    kind: 'edition',
+    Price: 2599,
+    oldPrice: 3199,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Игра и все три эпизода City That Never Sleeps, плюс костюмы и концепт-арты.',
+  },
+
+  // --- Dead Space 2 ---
+  {
+    game: 'dead-space-2',
+    Title: 'Severed',
+    kind: 'dlc',
+    Price: 349,
+    position: 1,
+    Description:
+      'Дополнение о сержанте Гейбе Уэллере и его поисках на станции «Титан» до событий игры.',
+  },
+
+  // --- Sid Meier's Civilization VII ---
+  {
+    game: 'sid-meier-s-civilization-vii',
+    Title: 'Deluxe Content Pack',
+    kind: 'dlc',
+    Price: 1199,
+    oldPrice: 1499,
+    isSale: true,
+    position: 1,
+    Description:
+      'Пакет контента Deluxe: стартовые бонусы, альтернативные облики лидеров и тематические сцены.',
+  },
+  {
+    game: 'sid-meier-s-civilization-vii',
+    Title: 'Founder\u2019s Edition',
+    kind: 'edition',
+    Price: 3999,
+    oldPrice: 4699,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Игра, Deluxe Content Pack и доступ к будущим крупным дополнениям сезона.',
+  },
+
+  // --- Terraria ---
+  {
+    game: 'terraria',
+    Title: 'Terraria Soundtrack',
+    kind: 'dlc',
+    Price: 299,
+    position: 1,
+    Description:
+      'Полный официальный саундтрек Terraria в высоком качестве.',
+  },
+
+  // --- Dark Souls Remastered ---
+  {
+    game: 'dark-souls-remastered',
+    Title: 'Artorias of the Abyss',
+    kind: 'dlc',
+    Price: 599,
+    position: 1,
+    Description:
+      'Дополнение о рыцаре Арториасе: новые локации, боссы и оружие Абраса.',
+  },
+
+  // --- ICARUS ---
+  {
+    game: 'icarus',
+    Title: 'New Frontiers',
+    kind: 'dlc',
+    Price: 899,
+    oldPrice: 1099,
+    isSale: true,
+    position: 1,
+    Description:
+      'Крупное расширение: открытая карта Прометей, новая флора и фауна, свежие наборы для строительства.',
+  },
+
+  // --- Dying Light ---
+  {
+    game: 'dying-light',
+    Title: 'The Following',
+    kind: 'dlc',
+    Price: 899,
+    oldPrice: 1199,
+    isSale: true,
+    position: 1,
+    Description:
+      'Сюжетное дополнение с открытой сельской картой и управляемым багги.',
+  },
+  {
+    game: 'dying-light',
+    Title: 'Definitive Edition',
+    kind: 'edition',
+    Price: 1799,
+    oldPrice: 2299,
+    isSale: true,
+    includesBaseGame: true,
+    position: 2,
+    Description:
+      'Игра, The Following, Bozak Horde и все остальные дополнения в одном наборе.',
+  },
+
+  // --- Sons Of The Forest ---
+  {
+    game: 'sons-of-the-forest',
+    Title: 'Dedicated Server Pack',
+    kind: 'dlc',
+    Price: 399,
+    position: 1,
+    Description:
+      'Набор для выделенного сервера: расширенные слоты, админ-инструменты и резервные копии мира.',
+  },
+
+  // --- Rust ---
+  {
+    game: 'rust',
+    Title: 'Voice Props Pack',
+    kind: 'dlc',
+    Price: 549,
+    oldPrice: 749,
+    isSale: true,
+    position: 1,
+    Description:
+      'Набор декоративных предметов для базы: кассетные плееры, микрофоны и стационарные телефоны.',
+  },
+  {
+    game: 'rust',
+    Title: 'Sunburn Pack',
+    kind: 'dlc',
+    Price: 399,
+    position: 2,
+    Description:
+      'Косметический набор Sunburn: одежда и предметы для базы в летнем стиле.',
+  },
+
+  // --- Phasmophobia ---
+  {
+    game: 'phasmophobia',
+    Title: 'Ghost Hunter\u2019s Starter Kit',
+    kind: 'dlc',
+    Price: 299,
+    position: 1,
+    Description:
+      'Набор охотника: уровни снаряжения, кастомные оболочки EMV и счётчик ЭМП.',
+  },
+
+  // --- It Takes Two ---
+  {
+    game: 'it-takes-two',
+    Title: 'Friend\u2019s Pass',
+    kind: 'dlc',
+    Price: 0,
+    position: 1,
+    Description:
+      'Гостевой пропуск: второй игрок присоединяется бесплатно, если у напарника есть базовая игра.',
+  },
+
+  // --- Silent Hill 2 ---
+  {
+    game: 'silent-hill-2',
+    Title: 'Digital Deluxe Upgrade',
+    kind: 'dlc',
+    Price: 699,
+    position: 1,
+    Description:
+      'Обновление до Deluxe: цифровой артбук, саундтрек и комплект костюмов для Марии.',
+  },
+
+  // --- Hollow Knight ---
+  {
+    game: 'hollow-knight',
+    Title: 'Hollow Knight: Silksong',
+    kind: 'dlc',
+    Price: 899,
+    oldPrice: 1199,
+    isSale: true,
+    position: 1,
+    Description:
+      'Ожидаемое продолжение: Хорнет в новом королевстве Фарлум, новые боссы и боевые стойки.',
+  },
+  {
+    game: 'hollow-knight',
+    Title: 'Godmaster',
+    kind: 'dlc',
+    Price: 0,
+    position: 2,
+    Description:
+      'Бесплатное дополнение: пантеон боссов, новые амулеты и режим испытаний.',
+  },
+
+  // --- Sekiro ---
+  {
+    game: 'sekiro',
+    Title: 'Game of the Year Edition Upgrade',
+    kind: 'dlc',
+    Price: 0,
+    position: 1,
+    Description:
+      'Обновление GOTY: режим отражений, гаунтлеты и скины для боссов.',
+  },
+
+  // --- Silent Hill f ---
+  {
+    game: 'silent-hill-f',
+    Title: 'Digital Deluxe Content',
+    kind: 'dlc',
+    Price: 799,
+    oldPrice: 999,
+    isSale: true,
+    position: 1,
+    Description:
+      'Контент Deluxe: цифровой артбук, саундтрек и ранний доступ к костюмам Хинако.',
   },
 ];
 
