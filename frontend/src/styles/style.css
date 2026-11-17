@@ -69,9 +69,11 @@ a {
 }
 
 .sidebar-btn {
-  padding: 15px;
-  font-size: 25px;
-  transition: transform 0.5s ease;
+  padding: 12px 14px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+  transition: background-color 0.2s ease;
   list-style: none;
   cursor: pointer;
 }
@@ -117,11 +119,34 @@ a {
 .sidebar-btn a {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 14px;
   color: rgb(156, 151, 151);
   text-decoration: none;
   width: 100%;
   /* height: 100%; */
+}
+
+/* Иконки сайдбара: единый размер, ровный штрих и центрирование */
+.sidebar .sidebar-btn .icon-svg {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  flex-shrink: 0;
+  stroke-width: 1.7;
+  opacity: 0.85;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-brand .icon-svg {
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  stroke-width: 1.7;
+}
+
+.sidebar .sidebar-btn:hover .icon-svg,
+.sidebar .sidebar-btn.active .icon-svg {
+  opacity: 1;
 }
 
 .sidebar-btn a:hover {

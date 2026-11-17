@@ -1374,6 +1374,93 @@
   display: block;
 }
 
+.us-game-media {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.us-game-trailer {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  background: #000;
+  object-fit: contain;
+}
+
+/* Галерея скриншотов под видео */
+.us-screens-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.us-screen-thumb {
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #090d16;
+  cursor: pointer;
+  line-height: 0;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.us-screen-thumb:hover,
+.us-screen-thumb:focus-visible {
+  border-color: #8f3ed1;
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.us-screen-thumb img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
+/* Лайтбокс для просмотра скриншота в полном размере */
+.us-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(3, 6, 12, 0.92);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  cursor: zoom-out;
+}
+
+.us-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 14px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+  cursor: default;
+}
+
+.us-lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  background: rgba(15, 20, 32, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.us-lightbox-close:hover {
+  border-color: #8f3ed1;
+  color: #a78bfa;
+}
+
 .us-steam-showcase-bar {
   display: flex;
   justify-content: space-between;
@@ -1509,12 +1596,24 @@
   padding: 18px;
 }
 
+/* Обложка в правом сайдбаре: постер 3:4, не обрезает вертикальную арт-обложку */
+.us-steam-cover-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #090d16;
+}
+
 .us-steam-aside-thumb {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 3 / 4;
+  max-height: 380px;
   object-fit: cover;
-  border-radius: 12px;
-  margin-bottom: 12px;
+  object-position: center top;
+  display: block;
+  margin-bottom: 0;
+  border-radius: 0;
 }
 
 .us-steam-aside-short {

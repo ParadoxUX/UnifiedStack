@@ -4,6 +4,7 @@ import GameGrid from "@/components/store/GameGrid";
 import SwiperBanner from "@/components/store/SwiperBanner";
 import SearchBar from "@/components/store/SearchBar";
 import { fetchFromStrapi } from "@/lib/strapi";
+import { imageUrl } from "@/lib/media";
 
 export default function StorePage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,9 +23,7 @@ export default function StorePage() {
             description: g.Description || "Описание отсутствует",
             developer: g.developer || "Неизвестно",
             genre: g.Genre || "Не указан",
-            image: g.Cover?.url
-              ? `http://127.0.0.1:1337${g.Cover.url}`
-              : "/placeholder.png",
+            image: imageUrl(g.Cover) || "/img/game-placeholder.svg",
           }))
         );
       })

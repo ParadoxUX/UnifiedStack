@@ -1,18 +1,31 @@
 ﻿import { Metadata } from "next";
 import { fetchFromStrapi } from "@/lib/strapi";
+import { imageUrl, videoUrl, imageUrls, firstVideoLink } from "@/lib/media";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ProductDescription from "@/components/store/ProductDescription";
 import BuyButton from "@/components/store/BuyButton";
 import ProductReviews from "@/components/store/ProductReviews";
+import GameMedia, { type Screenshot } from "@/components/store/GameMedia";
 import Icon from "@/components/ui/Icon";
 
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
+const PLACEHOLDER = "/img/game-placeholder.svg";
 
 function normalize(raw: any) {
   if (!raw) return null;
   const g = Array.isArray(raw) ? raw[0] : raw;
   if (!g) return null;
+
+  const image = imageUrl(g.Cover) || PLACEHOLDER;
+  // Видео из админки: компонент Trailers со ссылками (YouTube/Vimeo/mp4).
+  // media-поле Trailer поддерживается как запасной вариант.
+  const trailerSource = firstVideoLink(g.Trailers);
+  const trailerFile = videoUrl(g.Trailer);
+  const trailer = trailerSource ?? (trailerFile ? { kind: "file" as const, url: trailerFile } : null);
+  const screenshots: Screenshot[] = imageUrls(g.Screenshots).map((url, i) => ({
+    url,
+    alt: `${g.Title || "Игра"} — скриншот ${i + 1}`,
+  }));
 
   return {
     id: g.documentId ?? g.id,
@@ -24,9 +37,9 @@ function normalize(raw: any) {
     genre: g.Genre || "Экшен",
     platform: g.Platform || "PC (Windows)",
     releaseDate: g.game_year ?? "2025",
-    image: g.Cover?.url
-      ? `${STRAPI_URL}${g.Cover.url}`
-      : "/img/game-placeholder.svg",
+    image,
+    trailer,
+    screenshots,
     isSale: Boolean(g.isSale),
     oldPrice: g.oldPrice,
   };
@@ -109,15 +122,14 @@ export default async function ProductPage({
 
         {/* Основная двухколоночная сетка в стиле Steam */}
         <div className="us-steam-layout">
-          {/* Левая основная колонка */}
+          {/* Левая основная колонка: видео → скриншоты → покупка → описание */}
           <div className="us-steam-main">
-            <div className="us-steam-showcase">
-              <img src={product.image} alt={product.title} />
-              <div className="us-steam-showcase-bar">
-                <span>Цифровое издание • Мгновенная активация</span>
-                <span>{product.platform}</span>
-              </div>
-            </div>
+            <GameMedia
+              title={product.title}
+              trailer={product.trailer}
+              screenshots={product.screenshots}
+              cover={product.image}
+            />
 
             {/* Плашка покупки в стиле Steam */}
             <div className="us-steam-buy-box">
@@ -189,10 +201,16 @@ export default async function ProductPage({
             <ProductReviews gameId={product.id} gameTitle={product.title} />
           </div>
 
-          {/* Правый информационный сайдбар (как в Steam) */}
+          {/* Правый информационный сайдбар: обложка + метаданные */}
           <aside className="us-steam-aside">
             <div className="us-steam-aside-card">
-              <img src={product.image} alt={product.title} className="us-steam-aside-thumb" />
+              <div className="us-steam-cover-wrap">
+                <img
+                  src={product.image}
+                  alt={product.title}
+                  className="us-steam-aside-thumb"
+                />
+              </div>
               <p className="us-steam-aside-short">
                 {product.description.length > 155
                   ? `${product.description.slice(0, 155)}...`

@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { fetchBanners } from "@/lib/strapi";
+import { imageUrl } from "@/lib/media";
 import QuickViewModal from "./QuickViewModal";
-
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
 
 interface BannerItem {
   image: string;
@@ -25,9 +24,9 @@ export default function SwiperBanner() {
         const sorted = [...data].sort((a: any, b: any) => (a.Order || 0) - (b.Order || 0));
 
         const mapToItem = (b: any): BannerItem => {
-          const url = b?.Image?.url || b?.Image?.[0]?.url || b?.game?.Cover?.url;
+          const url = imageUrl(b?.Image) || imageUrl(b?.game?.Cover);
           return {
-            image: url ? `${STRAPI_URL}${url}` : "",
+            image: url || "",
             game: b.game || null,
           };
         };
@@ -69,7 +68,7 @@ export default function SwiperBanner() {
       description: item.game.Description || "",
       developer: item.game.developer || "Неизвестная студия",
       genre: item.game.Genre || "Экшен",
-      image: item.game.Cover?.url ? `${STRAPI_URL}${item.game.Cover.url}` : item.image,
+      image: imageUrl(item.game.Cover) || item.image,
     });
   };
 

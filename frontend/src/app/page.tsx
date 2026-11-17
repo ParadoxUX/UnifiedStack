@@ -1,12 +1,11 @@
 ﻿import { fetchFromStrapi } from "@/lib/strapi";
+import { imageUrl } from "@/lib/media";
 import GameGrid from "@/components/store/GameGrid";
 import MyLibraryPreview from "@/components/store/MyLibraryPreview";
 import SwiperBanner from "@/components/store/SwiperBanner";
 import Icon from "@/components/ui/Icon";
 
 export const dynamic = "force-dynamic";
-
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
 
 export default async function HomePage() {
   let games: any[] = [];
@@ -23,9 +22,7 @@ export default async function HomePage() {
       description: g.Description || "",
       developer: g.developer || "Неизвестная студия",
       genre: g.Genre || "Экшен",
-      image: g.Cover?.url
-        ? `${STRAPI_URL}${g.Cover.url}`
-        : "/img/game-placeholder.svg",
+      image: imageUrl(g.Cover) || "/img/game-placeholder.svg",
     }));
   } catch {
     games = [];

@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { toggleWishlist, isInWishlist } from "@/lib/wishlist";
 import { getJSON } from "@/lib/storage";
+import { imageUrl } from "@/lib/media";
 import Icon from "@/components/ui/Icon";
 import QuickViewModal from "./QuickViewModal";
 
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
+const PLACEHOLDER = "/img/game-placeholder.svg";
 
 export default function GameCard({
   game,
@@ -20,9 +21,7 @@ export default function GameCard({
   const [showQuickView, setShowQuickView] = useState(false);
 
   const gameId = game?.documentId ?? "";
-  const initialImage = game?.Cover?.url
-    ? `${STRAPI_URL}${game.Cover.url}`
-    : "/img/game-placeholder.svg";
+  const initialImage = imageUrl(game?.Cover) || PLACEHOLDER;
 
   const [imgSrc, setImgSrc] = useState(initialImage);
 
