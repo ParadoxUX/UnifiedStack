@@ -35,7 +35,17 @@
     "Cover": {
       "type": "media",
       "multiple": false,
-      "allowedTypes": ["images", "files", "videos", "audios"]
+      "allowedTypes": ["images"]
+    },
+    "Trailers": {
+      "type": "component",
+      "repeatable": true,
+      "component": "shared.video-link"
+    },
+    "Screenshots": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": ["images"]
     },
     "isSale": {
       "type": "boolean"

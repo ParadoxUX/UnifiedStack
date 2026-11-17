@@ -62,6 +62,18 @@ export interface SharedSlider extends Struct.ComponentSchema {
   };
 }
 
+export interface SharedVideoLink extends Struct.ComponentSchema {
+  collectionName: 'components_shared_video_link';
+  info: {
+    description: '\u0412\u0438\u0434\u0435\u043E \u043F\u043E \u0441\u0441\u044B\u043B\u043A\u0435: YouTube, Vimeo, Rutube, VK \u0438\u043B\u0438 \u043F\u0440\u044F\u043C\u043E\u0439 URL \u043D\u0430 mp4/webm';
+    displayName: 'Video link';
+    icon: 'play';
+  };
+  attributes: {
+    url: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
 declare module '@strapi/strapi' {
   export namespace Public {
     export interface ComponentSchemas {
@@ -70,6 +82,7 @@ declare module '@strapi/strapi' {
       'shared.rich-text': SharedRichText;
       'shared.seo': SharedSeo;
       'shared.slider': SharedSlider;
+      'shared.video-link': SharedVideoLink;
     }
   }
 }

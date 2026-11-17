@@ -853,7 +853,7 @@ export interface ApiGameGame extends Struct.CollectionTypeSchema {
   };
   attributes: {
     banner: Schema.Attribute.Relation<'oneToOne', 'api::banner.banner'>;
-    Cover: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    Cover: Schema.Attribute.Media<'images'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -879,6 +879,7 @@ export interface ApiGameGame extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<0>;
+    Screenshots: Schema.Attribute.Media<'images', true>;
     stock: Schema.Attribute.Integer &
       Schema.Attribute.SetMinMax<
         {
@@ -887,6 +888,7 @@ export interface ApiGameGame extends Struct.CollectionTypeSchema {
         number
       >;
     Title: Schema.Attribute.String;
+    Trailers: Schema.Attribute.Component<'shared.video-link', true>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_shared_video_link",
+  "info": {
+    "displayName": "Video link",
+    "description": "Видео по ссылке: YouTube, Vimeo, Rutube, VK или прямой URL на mp4/webm",
+    "icon": "play"
+  },
+  "options": {},
+  "attributes": {
+    "url": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

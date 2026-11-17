@@ -23,6 +23,10 @@ const PUBLIC_PERMISSIONS: Array<{ api: string; singular: string; actions: string
   { api: 'popular-topics', singular: 'popular-topic', actions: ['find', 'findOne'] },
 ];
 
+// Публичный доступ к загруженным медиа: фронтенд берёт url обложек, скриншотов и видео.
+// Без этого populate[Cover] может вернуть только id файла.
+const PUBLIC_UPLOAD_PERMISSIONS = ['plugin::upload.content-api.find', 'plugin::upload.content-api.findOne'];
+
 const MIME_MAP: Record<string, string> = {
   '.webp': 'image/webp',
   '.png': 'image/png',
@@ -203,7 +207,8 @@ async function seedInitialTariffs(strapi: Core.Strapi) {
 async function ensureRolePermissions(
   strapi: Core.Strapi,
   roleType: string,
-  permissions: Array<{ api: string; singular: string; actions: string[] }>
+  permissions: Array<{ api: string; singular: string; actions: string[] }>,
+  rawActions: string[] = []
 ) {
   const role = await strapi.db.query('plugin::users-permissions.role').findOne({
     where: { type: roleType },
@@ -226,6 +231,14 @@ async function ensureRolePermissions(
         })
       );
     }
+  }
+  for (const fullAction of rawActions) {
+    if (existingActions.has(fullAction)) continue;
+    toCreate.push(
+      strapi.db.query('plugin::users-permissions.permission').create({
+        data: { action: fullAction, role: role.id },
+      })
+    );
   }
   await Promise.all(toCreate);
 }
@@ -254,7 +267,7 @@ export default {
     await seedInitialTariffs(strapi);
     await seedCommunity(strapi);
     await cleanupInvalidPermissions(strapi);
-    await ensureRolePermissions(strapi, 'public', PUBLIC_PERMISSIONS);
-    await ensureRolePermissions(strapi, 'authenticated', PUBLIC_PERMISSIONS);
+    await ensureRolePermissions(strapi, 'public', PUBLIC_PERMISSIONS, PUBLIC_UPLOAD_PERMISSIONS);
+    await ensureRolePermissions(strapi, 'authenticated', PUBLIC_PERMISSIONS, PUBLIC_UPLOAD_PERMISSIONS);
   },
 };
