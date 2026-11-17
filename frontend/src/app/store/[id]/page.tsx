@@ -6,8 +6,72 @@ import ProductDescription from "@/components/store/ProductDescription";
 import BuyButton from "@/components/store/BuyButton";
 import ProductReviews from "@/components/store/ProductReviews";
 import Icon from "@/components/ui/Icon";
+import GameMediaGallery, { MediaSlide } from "@/components/store/GameMediaGallery";
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
+
+// Strapi 5: media — либо объект, либо { data: {...} } либо массив таких значений
+function mediaList(value: any): any[] {
+  if (!value) return [];
+  const arr = Array.isArray(value) ? value : value.data ?? [value];
+  return (Array.isArray(arr) ? arr : [arr]).filter(Boolean);
+}
+
+function mediaUrl(file: any): string | null {
+  if (!file) return null;
+  const url = file.url || file.attributes?.url;
+  return url ? `${STRAPI_URL}${url}` : null;
+}
+
+// Ищем первое заполненное поле по списку возможных названий (media / string / JSON)
+function pickField(game: any, keys: string[]) {
+  for (const key of keys) {
+    const value = game?.[key];
+    if (value === undefined || value === null || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    return value;
+  }
+  return null;
+}
+
+function buildSlides(game: any): MediaSlide[] {
+  const slides: MediaSlide[] = [];
+
+  // 1. Трейлеры: media-поле, строковый URL или список ссылок
+  for (const file of mediaList(pickField(game, ["Trailer", "Video", "trailers", "Videos"]))) {
+    const url = typeof file === "string" ? file : mediaUrl(file);
+    if (!url) continue;
+    const poster = mediaUrl(file?.Poster || file) ?? undefined;
+    slides.push({ type: "video", src: url, thumb: poster, caption: game.Title });
+  }
+
+  for (const raw of [
+    game.trailerUrl,
+    game.videoUrl,
+    game.youtubeUrl,
+    ...(Array.isArray(game.TrailerUrls) ? game.TrailerUrls : []),
+    ...(Array.isArray(game.Videos) && typeof game.Videos[0] === "string" ? game.Videos : []),
+  ]) {
+    const url = typeof raw === "string" ? raw.trim() : "";
+    if (url && !slides.some((s) => s.src === url)) slides.push({ type: "video", src: url });
+  }
+
+  // 2. Скриншоты
+  for (const file of mediaList(pickField(game, ["Screenshots", "screenshots", "Gallery", "Media"]))) {
+    const url = typeof file === "string" ? file : mediaUrl(file);
+    if (url) slides.push({ type: "image", src: url, thumb: url, caption: game.Title });
+  }
+
+  // 3. Статичные превью, если скриншотов нет — обложка, баннер и т.п.
+  if (!slides.some((s) => s.type === "image")) {
+    for (const key of ["Preview", "Banner", "Poster", "Image", "artwork"]) {
+      const url = mediaUrl(game[key]);
+      if (url) slides.push({ type: "image", src: url, thumb: url });
+    }
+  }
+
+  return slides;
+}
 
 function normalize(raw: any) {
   if (!raw) return null;
@@ -29,6 +93,7 @@ function normalize(raw: any) {
       : "/img/game-placeholder.svg",
     isSale: Boolean(g.isSale),
     oldPrice: g.oldPrice,
+    media: buildSlides(g),
   };
 }
 
@@ -111,13 +176,11 @@ export default async function ProductPage({
         <div className="us-steam-layout">
           {/* Левая основная колонка */}
           <div className="us-steam-main">
-            <div className="us-steam-showcase">
-              <img src={product.image} alt={product.title} />
-              <div className="us-steam-showcase-bar">
-                <span>Цифровое издание • Мгновенная активация</span>
-                <span>{product.platform}</span>
-              </div>
-            </div>
+            <GameMediaGallery
+              slides={product.media}
+              fallback={product.image}
+              title={product.title}
+            />
 
             {/* Плашка покупки в стиле Steam */}
             <div className="us-steam-buy-box">
