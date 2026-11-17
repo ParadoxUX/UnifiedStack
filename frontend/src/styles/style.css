@@ -4,12 +4,33 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* Фирменные цвета */
+  --brand-teal: #06282d;
+  --brand-black: #000000;
+  --brand-purple: #8f3ed1;
+  --brand-purple-light: #a110ce;
+
+  /* Градиент фона всего приложения */
+  --app-gradient: linear-gradient(90deg, #06282d, #000000, #000000, #06282d);
+  --card-gradient: linear-gradient(145deg, #0b2024, #050d0f);
+  --button-gradient: linear-gradient(135deg, #8f3ed1, #a110ce);
+}
+
 body {
   color: #ffffff;
   font-family: "Sora", system-ui, sans-serif;
   position: relative;
   background: url("/ФОН2.jpg") center / cover no-repeat;
   background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Фирменный градиент: тёмный центр, бирюзовая подсветка по краям. */
+.app {
+  min-height: 100vh;
+  background: -webkit-linear-gradient(90deg, #06282d, #000000, #000000, #06282d);
+  background: linear-gradient(90deg, #06282d, #000000, #000000, #06282d);
 }
 
 .h11 {
@@ -47,7 +68,7 @@ a {
 /* Боковое меню */
 .sidebar {
   width: 270px;
-  background: rgb(5, 0, 56);
+  background: #06282d;
   padding: 15px;
   display: flex;
   flex-direction: column;
@@ -141,6 +162,8 @@ a {
   padding: 20px;
   flex: 1; /*занимает всю оставшуюся ширину*/
   margin-left: 270px;
+  min-height: 100vh;
+  background: transparent;
 }
 
 .sidebar-btn.has-dropdown {
