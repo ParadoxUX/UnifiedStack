@@ -3,14 +3,30 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { showToast } from "@/lib/toast";
-import {
-  fetchAddons,
-  fetchLibrary,
-  purchaseAddon,
-  GameAddon,
-} from "@/lib/wallet";
+import { fetchLibrary, purchaseAddon, GameAddon } from "@/lib/wallet";
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
+
+/** Дополнения игры: запрос прямо из браузера, как fetchFromStrapi в магазине. */
+async function loadAddons(gameId: string): Promise<GameAddon[]> {
+  const res = await fetch(
+    `${STRAPI_URL}/api/game-addons/by-game/${encodeURIComponent(gameId)}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) throw new Error(`Каталог недоступен (${res.status})`);
+  const json = await res.json();
+  const list = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+  return list.map((row: any) => {
+    const flat = row?.attributes && typeof row.attributes === "object" ? row.attributes : {};
+    return {
+      ...flat,
+      ...row,
+      id: row?.id ?? flat.id,
+      documentId: row?.documentId ?? flat.documentId,
+      Cover: row?.Cover ?? flat.Cover ?? null,
+    } as GameAddon;
+  });
+}
 
 function money(value: number | null | undefined) {
   if (!value) return "Бесплатно";
@@ -34,18 +50,38 @@ export default function AddonList({
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetchAddons(gameId)
+    loadAddons(gameId)
       .then((items) => {
-        if (!cancelled) setAddons(items);
+        if (cancelled) return;
+        setAddons(items);
+        setLoading(false);
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err?.message || "Не удалось загрузить дополнения");
+        setLoading(false);
       });
 
+    const timer = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) setError("Сервер каталога не отвечает");
+        return false;
+      });
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [gameId]);
+
+  useEffect(() => {
+    let cancelled = false;
     fetchLibrary()
       .then((items) => {
         if (cancelled) return;
@@ -109,9 +145,18 @@ export default function AddonList({
 
   if (loading) {
     return (
-      <section className="us-steam-section">
+      <section className="us-steam-section" data-debug="addons">
         <h2 className="us-steam-section-title">Дополнения и издания</h2>
         <p className="us-addons-empty">Загрузка…</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="us-steam-section" data-debug="addons">
+        <h2 className="us-steam-section-title">Дополнения и издания</h2>
+        <p className="us-addons-empty">Не удалось загрузить: {error}</p>
       </section>
     );
   }

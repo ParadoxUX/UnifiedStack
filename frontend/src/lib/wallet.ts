@@ -147,19 +147,33 @@ export async function purchaseAddon(
 
 /** Дополнения конкретной игры (публичный endpoint Strapi). */
 export async function fetchAddons(gameId: string | number): Promise<GameAddon[]> {
-  const base =
-    process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
-  try {
-    const res = await fetch(
-      `${base}/api/game-addons/by-game/${encodeURIComponent(String(gameId))}`,
-      { cache: "no-store" }
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return Array.isArray(json?.data) ? json.data : [];
-  } catch {
-    return [];
-  }
+  const data = await fetchFromStrapiWithQuery(
+    `game-addons/by-game/${encodeURIComponent(String(gameId))}`
+  );
+  const list = Array.isArray(data) ? data : [];
+  return list.map((row: any) => {
+    // Strapi v5: поля лежат в корне; v4-совместимость — через attributes.
+    const flat = row?.attributes && typeof row.attributes === "object" ? row.attributes : {};
+    return {
+      ...flat,
+      ...row,
+      id: row?.id ?? flat.id,
+      documentId: row?.documentId ?? flat.documentId,
+      Cover: row?.Cover ?? flat.Cover ?? null,
+    } as GameAddon;
+  });
+}
+
+/**
+ * Запрос к Strapi без автоматического populate — кастомные маршруты Strapi
+ * сами решают, какие поля отдавать.
+ */
+async function fetchFromStrapiWithQuery(path: string): Promise<any> {
+  const base = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
+  const res = await fetch(`${base}/api/${path}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Ошибка Strapi: ${res.status}`);
+  const json = await res.json();
+  return json.data;
 }
 
 export async function fetchTransactions(): Promise<WalletTransaction[]> {

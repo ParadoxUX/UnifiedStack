@@ -116,12 +116,16 @@ const GAME_ADDONS: Array<{
 ];
 
 /**
- * Идемпотентный сид дополнений: связывает их с играми по slug.
+ * Идемпотентный сид дополнений: связывает их с играми по названию.
+ * Поле slug у игр не существует — так же, как в syncFullCatalog.
  */
 async function seedGameAddons(strapi: Core.Strapi) {
   for (const item of GAME_ADDONS) {
+    const catalogItem = CATALOG_GAMES.find((g) => g.slug === item.game);
+    if (!catalogItem) continue;
+
     const game = await strapi.db.query('api::game.game').findOne({
-      where: { slug: item.game },
+      where: { Title: catalogItem.Title },
     });
     if (!game) continue;
 
@@ -150,6 +154,45 @@ async function seedGameAddons(strapi: Core.Strapi) {
       await strapi.db.query('api::game-addon.game-addon').create({ data });
     }
   }
+}
+
+/**
+ * Явный список кастомных маршрутов дополнений. В Strapi один API = один
+ * core-роутер, второй createCoreRouter для того же uid ломает загрузку,
+ * поэтому публичный каталог описан отдельным массивом.
+ */
+const ADDON_PUBLIC_ROUTES = [
+  {
+    method: 'GET' as const,
+    path: '/game-addons/by-game/:gameId',
+    handler: 'game-addon.findByGame',
+    config: { auth: false, policies: [] },
+  },
+];
+
+async function registerAddonRoutes(strapi: Core.Strapi) {
+  const router = (strapi.server as any)?.router;
+  if (!router?.get) return;
+
+  for (const route of ADDON_PUBLIC_ROUTES) {
+    const handler = resolveHandler(strapi, route.handler);
+    if (typeof handler !== 'function') continue;
+    const path = `/api${route.path}`;
+    try {
+      router.get(path, handler);
+    } catch {
+      // Маршрут мог быть зарегистрирован ранее — повтор не критичен.
+    }
+  }
+}
+
+/**
+ * Разрешение handler по строке вида 'controller.action'.
+ */
+function resolveHandler(strapi: Core.Strapi, name: string): ((ctx: any) => any) | null {
+  const [apiName, action] = String(name).split('.');
+  const controller = (strapi as any).controller?.(`api::${apiName}.${apiName}`);
+  return controller?.[action] ?? null;
 }
 
 async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string) {
@@ -340,6 +383,7 @@ export default {
     await runWalletMigration(strapi);
     await syncFullCatalog(strapi);
     await seedGameAddons(strapi);
+    await registerAddonRoutes(strapi);
     await seedInitialTariffs(strapi);
     await seedCommunity(strapi);
     await cleanupInvalidPermissions(strapi);
