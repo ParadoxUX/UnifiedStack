@@ -81,6 +81,23 @@ export default {
     }
   },
 
+  async purchaseAddon(ctx: any) {
+    const user = requireUser(ctx);
+    const { addonId, reference } = ctx.request.body ?? {};
+    if (!addonId) ctx.throw(400, 'addonId обязателен');
+
+    try {
+      const result = await walletService.purchaseAddon(strapi, {
+        userId: user.id,
+        addonId: String(addonId),
+        reference: reference || `purchase_addon_${user.id}_${addonId}_${Date.now()}`,
+      });
+      ctx.body = { data: result };
+    } catch (err: any) {
+      ctx.throw(400, err?.message || 'Ошибка покупки дополнения');
+    }
+  },
+
   async library(ctx: any) {
     const user = requireUser(ctx);
     const items = await walletService.getLibrary(strapi, user.id, true);

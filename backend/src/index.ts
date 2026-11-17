@@ -6,6 +6,7 @@ import { seedCommunity } from './utils/seed-community';
 
 const PUBLIC_PERMISSIONS: Array<{ api: string; singular: string; actions: string[] }> = [
   { api: 'games', singular: 'game', actions: ['find', 'findOne'] },
+  { api: 'game-addons', singular: 'game-addon', actions: ['find', 'findOne'] },
   { api: 'banners', singular: 'banner', actions: ['find', 'findOne'] },
   { api: 'categories', singular: 'category', actions: ['find', 'findOne'] },
   { api: 'events', singular: 'event', actions: ['find', 'findOne'] },
@@ -63,6 +64,93 @@ const CATALOG_GAMES = [
   { slug: 'silent-hill-f', Title: 'Silent Hill f', Price: 2599, developer: 'Neobards Entertainment', game_year: 2025, Genre: 'Psychological Horror', img: 'SH F.webp', Description: 'Новая глава серии Silent Hill, переносящая психологический ужас в Японию 1960-х годов.' },
   { slug: 'reanimal', Title: 'REANIMAL', Price: 1999, developer: 'Bloober Team', game_year: 2025, Genre: 'Survival Horror', img: 'Reanimal.jpg', Description: 'Мрачный кооперативный хоррор от создателей Little Nightmares и ремейка Silent Hill 2.' },
 ];
+
+/**
+ * Дополнения (DLC и издания) для отдельных игр.
+ * Идемпотентно: дополнение ищется по паре (игра, Title).
+ * Издание с includesBaseGame=true выдаёт базовую игру в библиотеку при покупке.
+ */
+const GAME_ADDONS: Array<{
+  game: string;
+  Title: string;
+  kind: 'dlc' | 'edition';
+  Price: number;
+  oldPrice?: number;
+  isSale?: boolean;
+  includesBaseGame?: boolean;
+  Description: string;
+  position?: number;
+}> = [
+  {
+    game: 'the-witcher-3',
+    Title: 'Hearts of Stone',
+    kind: 'dlc',
+    Price: 599,
+    position: 1,
+    Description:
+      'Первое крупное дополнение: Геральт нанимается к бессмертному Ольгерду фон Эвереку и бросает вызов Господину Зерцало.',
+  },
+  {
+    game: 'the-witcher-3',
+    Title: 'Blood and Wine',
+    kind: 'dlc',
+    Price: 799,
+    oldPrice: 999,
+    isSale: true,
+    position: 2,
+    Description:
+      'Туссент: солнечное герцогство с виноградниками, рыцарскими турнирами и собственной готической тайной.',
+  },
+  {
+    game: 'the-witcher-3',
+    Title: 'Game of the Year Edition',
+    kind: 'edition',
+    Price: 1999,
+    oldPrice: 2499,
+    isSale: true,
+    includesBaseGame: true,
+    position: 3,
+    Description:
+      'Полное издание: базовая игра, Hearts of Stone и Blood and Wine, весь набор бесплатных DLC и обновление для next-gen.',
+  },
+];
+
+/**
+ * Идемпотентный сид дополнений: связывает их с играми по slug.
+ */
+async function seedGameAddons(strapi: Core.Strapi) {
+  for (const item of GAME_ADDONS) {
+    const game = await strapi.db.query('api::game.game').findOne({
+      where: { slug: item.game },
+    });
+    if (!game) continue;
+
+    const existing = await strapi.db.query('api::game-addon.game-addon').findOne({
+      where: { game: { id: game.id }, Title: item.Title },
+    });
+
+    const data = {
+      Title: item.Title,
+      kind: item.kind,
+      Price: item.Price,
+      oldPrice: item.oldPrice ?? null,
+      isSale: Boolean(item.isSale),
+      includesBaseGame: Boolean(item.includesBaseGame),
+      Description: item.Description,
+      position: item.position ?? 0,
+      game: game.id,
+    };
+
+    if (existing) {
+      await strapi.db.query('api::game-addon.game-addon').update({
+        where: { id: existing.id },
+        data,
+      });
+    } else {
+      await strapi.db.query('api::game-addon.game-addon').create({ data });
+    }
+  }
+}
 
 async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string) {
   const cleanName = path.parse(imgFileName).name;
@@ -251,6 +339,7 @@ export default {
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
     await runWalletMigration(strapi);
     await syncFullCatalog(strapi);
+    await seedGameAddons(strapi);
     await seedInitialTariffs(strapi);
     await seedCommunity(strapi);
     await cleanupInvalidPermissions(strapi);

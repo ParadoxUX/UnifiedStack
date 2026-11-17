@@ -14,6 +14,7 @@ export default {
     { method: 'POST', path: '/wallets/deposit', handler: 'wallet.deposit', config: base },
     { method: 'POST', path: '/wallets/withdraw', handler: 'wallet.withdraw', config: base },
     { method: 'POST', path: '/wallets/purchase', handler: 'wallet.purchase', config: base },
+    { method: 'POST', path: '/wallets/addons/purchase', handler: 'wallet.purchaseAddon', config: base },
     { method: 'POST', path: '/wallets/reverse', handler: 'wallet.reverse', config: base },
   ],
 };

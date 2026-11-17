@@ -22,6 +22,11 @@
       "relation": "manyToOne",
       "target": "api::game.game"
     },
+    "addon": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::game-addon.game-addon"
+    },
     "status": {
       "type": "enumeration",
       "enum": ["owned", "installed", "refunded"],

@@ -307,6 +307,136 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
 }
 
 /**
+ * Покупка дополнения (DLC / издание).
+ *
+ * Цена и признак «включает базовую игру» берутся из записи `game-addon`,
+ * а не из тела запроса. Одна транзакция:
+ *  1. блокировка кошелька;
+ *  2. проверка, что дополнение ещё не куплено;
+ *  3. списание баланса;
+ *  4. запись в библиотеку (LibraryItem c addon=дополнение);
+ *  5. если издание включает базовую игру — запись в библиотеку и на саму игру.
+ */
+async function purchaseAddon(
+  strapi: Core.Strapi,
+  args: { userId: number | string; addonId: string; reference: string }
+) {
+  const wallet = await ensureWallet(strapi, args.userId);
+
+  const addon = await strapi.db.query('api::game-addon.game-addon').findOne({
+    where: {
+      $or: [{ documentId: args.addonId }, { id: Number(args.addonId) || -1 }],
+    },
+    populate: { game: true },
+  });
+  if (!addon) throw new ApplicationError('Дополнение не найдено');
+
+  const baseGame = addon.game;
+  const price = Number(addon.Price ?? 0);
+  if (price < 0) throw new ApplicationError('Некорректная цена дополнения');
+
+  const alreadyOwned = await strapi.db.query('api::library-item.library-item').findOne({
+    where: {
+      wallet: { id: wallet.id },
+      addon: { id: addon.id },
+      status: { $ne: 'refunded' },
+    },
+  });
+  if (alreadyOwned) {
+    throw new ApplicationError('Дополнение уже приобретено');
+  }
+
+  const existingTx = await strapi.db.query('api::transaction.transaction').findOne({
+    where: { reference: args.reference },
+  });
+  if (existingTx) {
+    return { balance: wallet.balance, transaction: existingTx, addon, idempotent: true };
+  }
+
+  const grant = async (walletId: number) => {
+    const item = await createAddonLibraryItem(strapi, walletId, addon, price);
+    const granted: Array<unknown> = [];
+    if (addon.includesBaseGame && baseGame) {
+      granted.push(await grantBaseGameIfMissing(strapi, walletId, baseGame, price));
+    }
+    return { libraryItem: item, granted };
+  };
+
+  if (price === 0) {
+    return strapi.db.transaction(async (trx) => {
+      const locked = await lockWallet(strapi, trx, Number(wallet.id));
+      const extra = await grant(locked.id);
+      const transaction = await recordTransaction(strapi, {
+        walletId: locked.id,
+        type: 'purchase',
+        amount: 0,
+        balanceBefore: locked.balance,
+        balanceAfter: locked.balance,
+        reference: args.reference,
+        gameId: baseGame?.id ?? null,
+        metadata: { free: true, addon: addon.Title, addonKind: addon.kind },
+      });
+      return { balance: locked.balance, transaction, addon, ...extra };
+    });
+  }
+
+  return move(strapi, {
+    userId: args.userId,
+    type: 'purchase',
+    amount: price,
+    reference: args.reference,
+    gameId: baseGame?.id ?? null,
+    metadata: { addon: addon.Title, addonKind: addon.kind, price },
+    extra: async (_trx, walletId) => grant(walletId),
+  });
+}
+
+/**
+ * Запись в библиотеке для дополнения.
+ */
+async function createAddonLibraryItem(
+  strapi: Core.Strapi,
+  walletId: number,
+  addon: any,
+  price: number
+) {
+  return strapi.db.query('api::library-item.library-item').create({
+    data: {
+      wallet: walletId,
+      game: addon.game?.id ?? null,
+      addon: addon.id,
+      status: 'owned',
+      pricePaid: price,
+      purchasedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Издание включает базовую игру: выдаём её в библиотеку, если ещё нет.
+ */
+async function grantBaseGameIfMissing(
+  strapi: Core.Strapi,
+  walletId: number,
+  game: any,
+  price: number
+) {
+  const owned = await strapi.db.query('api::library-item.library-item').findOne({
+    where: {
+      wallet: { id: walletId },
+      game: { id: game.id },
+      addon: { id: { $null: true } },
+      status: { $ne: 'refunded' },
+    },
+  });
+  if (owned) return { owned: false, game: game.Title };
+
+  const item = await createLibraryItem(strapi, walletId, game, price);
+  await bumpGameStatus(strapi, game);
+  return { owned: true, game: game.Title, libraryItem: item };
+}
+
+/**
  * Создание записи в библиотеке + обновление статуса игры у пользователя.
  */
 async function createLibraryItem(strapi: Core.Strapi, walletId: number, game: any, price: number) {
@@ -410,7 +540,7 @@ async function getLibrary(strapi: Core.Strapi, userId: number | string, includeG
   const wallet = await ensureWallet(strapi, userId);
   return strapi.db.query('api::library-item.library-item').findMany({
     where: { wallet: { id: wallet.id } },
-    populate: includeGame ? { game: true } : {},
+    populate: includeGame ? { game: true, addon: true } : {},
     orderBy: { purchasedAt: 'desc' },
   });
 }
@@ -421,6 +551,7 @@ export const walletService = {
   deposit,
   withdraw,
   purchaseGame,
+  purchaseAddon,
   reverseTransaction,
   getLibrary,
   recordTransaction,

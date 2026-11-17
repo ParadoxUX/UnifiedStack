@@ -64,6 +64,12 @@
       "relation": "oneToOne",
       "target": "api::banner.banner",
       "mappedBy": "game"
+    },
+    "addons": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::game-addon.game-addon",
+      "mappedBy": "game"
     }
   }
 }

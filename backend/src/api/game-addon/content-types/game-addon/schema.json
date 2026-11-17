@@ -1,0 +1,60 @@
+{
+  "kind": "collectionType",
+  "collectionName": "game_addons",
+  "info": {
+    "singularName": "game-addon",
+    "pluralName": "game-addons",
+    "displayName": "Game Addon"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "Title": {
+      "type": "string",
+      "required": true
+    },
+    "kind": {
+      "type": "enumeration",
+      "enum": ["dlc", "edition"],
+      "default": "dlc",
+      "required": true
+    },
+    "Price": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "oldPrice": {
+      "type": "integer",
+      "min": 0
+    },
+    "isSale": {
+      "type": "boolean",
+      "default": false
+    },
+    "Description": {
+      "type": "text"
+    },
+    "Cover": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "includesBaseGame": {
+      "type": "boolean",
+      "default": false
+    },
+    "position": {
+      "type": "integer",
+      "default": 0
+    },
+    "game": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::game.game",
+      "inversedBy": "addons"
+    }
+  }
+}

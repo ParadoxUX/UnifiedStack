@@ -28,6 +28,21 @@ export interface Wallet {
   transactions?: WalletTransaction[];
 }
 
+/** Дополнение: DLC или издание. */
+export interface GameAddon {
+  id: number;
+  documentId?: string;
+  Title: string;
+  kind: "dlc" | "edition";
+  Price: number;
+  oldPrice?: number | null;
+  isSale?: boolean;
+  Description?: string | null;
+  includesBaseGame?: boolean;
+  position?: number;
+  Cover?: { url: string; alternativeText?: string | null } | null;
+}
+
 export interface LibraryItem {
   id: number;
   documentId?: string;
@@ -40,6 +55,7 @@ export interface LibraryItem {
     Title?: string;
     Price?: number;
   };
+  addon?: GameAddon;
 }
 
 export class WalletError extends Error {
@@ -116,6 +132,34 @@ export async function purchaseGame(
 
 export async function fetchLibrary(): Promise<LibraryItem[]> {
   return request<LibraryItem[]>("/wallets/library");
+}
+
+/** Покупка дополнения. Цену всегда считает сервер по записи game-addon. */
+export async function purchaseAddon(
+  addonId: string | number,
+  reference?: string
+): Promise<{ balance: number; addon?: GameAddon; libraryItem?: LibraryItem }> {
+  return request("/wallets/addons/purchase", {
+    method: "POST",
+    body: JSON.stringify({ addonId, reference }),
+  });
+}
+
+/** Дополнения конкретной игры (публичный endpoint Strapi). */
+export async function fetchAddons(gameId: string | number): Promise<GameAddon[]> {
+  const base =
+    process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
+  try {
+    const res = await fetch(
+      `${base}/api/game-addons/by-game/${encodeURIComponent(String(gameId))}`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json?.data) ? json.data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchTransactions(): Promise<WalletTransaction[]> {

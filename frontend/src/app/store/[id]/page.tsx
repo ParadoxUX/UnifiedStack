@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import ProductDescription from "@/components/store/ProductDescription";
 import BuyButton from "@/components/store/BuyButton";
+import AddonList from "@/components/store/AddonList";
 import ProductReviews from "@/components/store/ProductReviews";
 import Icon from "@/components/ui/Icon";
 
@@ -152,8 +153,10 @@ export default async function ProductPage({
               </div>
             </div>
 
-            {/* Об игре */}
-            <section className="us-steam-section">
+            {/* Дополнения: DLC и издания */}
+            <AddonList gameId={String(product.id)} gameTitle={product.title} />
+
+            {/* Об игре */}            <section className="us-steam-section">
               <h2 className="us-steam-section-title">Об этой игре</h2>
               <ProductDescription text={product.description} />
             </section>
