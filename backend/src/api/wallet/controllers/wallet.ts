@@ -1,14 +1,29 @@
 /**
- * wallet controller — вся логика денежных операций.
- * Пользователь проверяется здесь (jwt users-permissions).
+ * wallet controller — денежные операции с типизированными HTTP-ошибками.
+ * Публичное пополнение закрыто (T-03): зачисление только через /api/payments/webhook.
  */
 
 import { walletService } from '../../../services/wallet';
+import {
+  httpStatusFor,
+  isWalletError,
+  publicMessageFor,
+  walletError,
+} from '../../../utils/wallet-errors';
 
 function requireUser(ctx: any) {
   const user = ctx.state.user;
   if (!user) ctx.throw(401, 'Требуется авторизация');
   return user;
+}
+
+function fail(ctx: any, err: unknown, fallback: string) {
+  const status = httpStatusFor(err);
+  const message = publicMessageFor(err, fallback);
+  if (!isWalletError(err)) {
+    strapi.log.error(`[wallet] ${fallback}`, err);
+  }
+  ctx.throw(status, message);
 }
 
 export default {
@@ -23,33 +38,14 @@ export default {
     ctx.body = { data: { ...wallet, transactions } };
   },
 
-  async deposit(ctx: any) {
-    const user = requireUser(ctx);
-    const { amount, reference } = ctx.request.body ?? {};
-    const parsed = Number(amount);
-
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      ctx.throw(400, 'amount должен быть целым положительным числом');
-    }
-    if (parsed > 1_000_000) {
-      ctx.throw(400, 'Разовая сумма пополнения не может превышать 1 000 000');
-    }
-
-    const result = await walletService.deposit(strapi, {
-      userId: user.id,
-      amount: parsed,
-      reference: reference || `deposit_${user.id}_${Date.now()}`,
-    });
-    ctx.body = { data: result };
-  },
-
   async withdraw(ctx: any) {
     const user = requireUser(ctx);
     const { amount, reference } = ctx.request.body ?? {};
     const parsed = Number(amount);
 
     if (!Number.isInteger(parsed) || parsed <= 0) {
-      ctx.throw(400, 'amount должен быть целым положительным числом');
+      fail(ctx, walletError('invalidInput', { field: 'amount' }), 'Некорректная сумма списания');
+      return;
     }
 
     try {
@@ -59,32 +55,32 @@ export default {
         reference: reference || `withdraw_${user.id}_${Date.now()}`,
       });
       ctx.body = { data: result };
-    } catch (err: any) {
-      ctx.throw(400, err?.message || 'Ошибка списания');
+    } catch (err) {
+      fail(ctx, err, 'Не удалось выполнить списание');
     }
   },
 
   async purchase(ctx: any) {
     const user = requireUser(ctx);
     const { gameId, reference } = ctx.request.body ?? {};
-    if (!gameId) ctx.throw(400, 'gameId обязателен');
-
-    if (typeof gameId !== 'number' && typeof gameId !== 'string') {
-      ctx.throw(400, 'gameId должен быть числом или строкой');
-    }
-    if (typeof gameId === 'string' && gameId.trim() === '') {
-      ctx.throw(400, 'gameId не может быть пустым');
+    if (
+      !gameId ||
+      (typeof gameId !== 'number' && typeof gameId !== 'string') ||
+      (typeof gameId === 'string' && gameId.trim() === '')
+    ) {
+      fail(ctx, walletError('invalidInput', { field: 'gameId' }), 'Некорректный gameId');
+      return;
     }
 
     try {
       const result = await walletService.purchaseGame(strapi, {
         userId: user.id,
-        gameId: String(gameId),
+        gameId: String(gameId).trim(),
         reference: reference || `purchase_${user.id}_${gameId}_${Date.now()}`,
       });
       ctx.body = { data: result };
-    } catch (err: any) {
-      ctx.throw(400, err?.message || 'Ошибка покупки');
+    } catch (err) {
+      fail(ctx, err, 'Не удалось выполнить покупку');
     }
   },
 
@@ -97,13 +93,16 @@ export default {
   async reverse(ctx: any) {
     const user = requireUser(ctx);
     const { reference } = ctx.request.body ?? {};
-    if (!reference) ctx.throw(400, 'reference обязателен');
+    if (!reference || typeof reference !== 'string' || !reference.trim()) {
+      fail(ctx, walletError('invalidInput', { field: 'reference' }), 'Некорректный reference');
+      return;
+    }
 
     try {
-      const result = await walletService.reverseTransaction(strapi, reference, user.id);
+      const result = await walletService.reverseTransaction(strapi, reference.trim(), user.id);
       ctx.body = { data: result };
-    } catch (err: any) {
-      ctx.throw(400, err?.message || 'Ошибка возврата');
+    } catch (err) {
+      fail(ctx, err, 'Не удалось выполнить возврат');
     }
   },
 };

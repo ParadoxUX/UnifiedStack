@@ -75,11 +75,23 @@ export async function fetchWallet(): Promise<Wallet> {
   return request<Wallet>("/wallets/me");
 }
 
-export async function deposit(amount: number, reference?: string): Promise<Wallet> {
-  return request<Wallet>("/wallets/deposit", {
+export async function deposit(amount: number, _reference?: string): Promise<Wallet> {
+  const res = await fetch("/api/payments/checkout", {
     method: "POST",
-    body: JSON.stringify({ amount, reference }),
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount }),
+    cache: "no-store",
   });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new WalletError(
+      json?.error?.message || json?.message || "Ошибка проведения платежа",
+      res.status
+    );
+  }
+  return json.data as Wallet;
 }
 
 export async function withdraw(amount: number, reference?: string): Promise<Wallet> {

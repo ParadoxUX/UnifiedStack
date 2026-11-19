@@ -13,9 +13,7 @@
  */
 
 import type { Core } from '@strapi/strapi';
-import { errors } from '@strapi/utils';
-
-const { ApplicationError } = errors;
+import { walletError } from '../utils/wallet-errors';
 
 export type TxType = 'deposit' | 'withdraw' | 'purchase' | 'refund';
 
@@ -57,7 +55,7 @@ function isUniqueViolation(err: any): boolean {
 const REFERENCE_CONFLICT = 'UNIQUE_REFERENCE';
 
 function referenceConflictError(): Error {
-  const err: any = new ApplicationError('Транзакция с таким reference уже существует');
+  const err: any = walletError('referenceConflict');
   err.code = REFERENCE_CONFLICT;
   return err;
 }
@@ -133,12 +131,12 @@ async function lockWallet(
       walletId,
     ]);
     const row = res?.rows?.[0] ?? res?.[0]?.[0];
-    if (!row) throw new ApplicationError('Кошелёк не найден');
+    if (!row) throw walletError('walletMissing', { walletId });
     return { id: Number(row.id), balance: Number(row.balance) };
   }
 
   const wallet = await knex('wallets').where({ id: walletId }).first();
-  if (!wallet) throw new ApplicationError('Кошелёк не найден');
+  if (!wallet) throw walletError('walletMissing', { walletId });
   return { id: Number(wallet.id), balance: Number(wallet.balance ?? 0) };
 }
 
@@ -214,9 +212,8 @@ async function performMove(
   const after = before + signedAmount;
 
   if (after < 0) {
-    throw new ApplicationError(
-      `Недостаточно средств: баланс ${before}, требуется ${Math.abs(signedAmount)}`
-    );
+    strapi.log.info(`[wallet] недостаточно средств: walletId=${locked.id} balance=${before} amount=${Math.abs(signedAmount)}`);
+    throw walletError('insufficientFunds', { walletId: locked.id });
   }
 
   // Условное обновление: сработает только если баланс не изменился
@@ -229,7 +226,7 @@ async function performMove(
     });
 
   if (!updated || updated.count === 0) {
-    throw new ApplicationError('Конфликт обновления баланса, повторите операцию');
+    throw walletError('balanceConflict', { walletId: locked.id });
   }
 
   const extraResult = params.extra ? await params.extra(trx, locked.id) : undefined;
@@ -383,9 +380,9 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
   const game = await strapi.db.query('api::game.game').findOne({
     where: { $or: [{ documentId: args.gameId }, { id: Number(args.gameId) || -1 }] },
   });
-  if (!game) throw new ApplicationError('Игра не найдена');
+  if (!game) throw walletError('gameMissing', { gameId: args.gameId });
   if (game.purchasable === false) {
-    throw new ApplicationError('Игра недоступна для покупки');
+    throw walletError('gameUnavailable', { gameId: args.gameId });
   }
 
   const existingTx = await strapi.db.query('api::transaction.transaction').findOne({
@@ -413,14 +410,14 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
       // Читаем цену через транзакцию: это то же соединение, что и списание.
       const knex = trx ?? (strapi.db.connection as any);
       const fresh = await knex('games').where({ id: game.id }).first();
-      if (!fresh) throw new ApplicationError('Игра не найдена');
+      if (!fresh) throw walletError('gameMissing', { gameId: args.gameId });
       if (fresh.purchasable === false || fresh.purchasable === 0) {
-        throw new ApplicationError('Игра недоступна для покупки');
+        throw walletError('gameUnavailable', { gameId: args.gameId });
       }
 
       const freshPrice = Number(fresh.price ?? 0);
       if (!Number.isFinite(freshPrice) || freshPrice < 0) {
-        throw new ApplicationError('Некорректная цена игры');
+        throw walletError('invalidInput', { gameId: args.gameId });
       }
 
       chargedPrice = freshPrice;
@@ -443,7 +440,7 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
             status: { $ne: 'refunded' },
           },
         });
-      if (owned) throw new ApplicationError('Игра уже приобретена');
+      if (owned) throw walletError('alreadyOwned', { gameId: args.gameId });
     },
     extra: async (trx, walletId) => {
       const item = await createLibraryItem(strapi, walletId, game, chargedPrice);
@@ -533,25 +530,39 @@ async function reverseTransaction(
   reference: string,
   userId: number | string
 ) {
-  const original = await strapi.db.query('api::transaction.transaction').findOne({
+  const precheck = await strapi.db.query('api::transaction.transaction').findOne({
     where: { reference },
-    populate: { wallet: { populate: ['user'] }, game: true },
+    populate: { wallet: { populate: ['user'] } },
   });
-  if (!original) throw new ApplicationError('Транзакция не найдена');
+  if (!precheck) throw walletError('transactionMissing', { reference });
 
-  const ownerId = original.wallet?.user?.id;
-  if (String(ownerId) !== String(userId)) {
-    throw new ApplicationError('Нельзя отменить чужую транзакцию');
+  const preOwnerId = precheck.wallet?.user?.id;
+  if (String(preOwnerId) !== String(userId)) {
+    throw walletError('forbidden', { reference });
   }
 
-  if (original.status === 'reversed') throw new ApplicationError('Транзакция уже отменена');
-
-  const walletId = original.wallet?.id;
-  if (!walletId) throw new ApplicationError('У транзакции нет кошелька');
+  const walletId = precheck.wallet?.id;
+  if (!walletId) throw walletError('walletMissing', { reference });
 
   const run = () =>
     strapi.db.transaction(async ({ trx }) => {
+      // Повторное чтение внутри транзакции после блокировки кошелька (T-02)
       const locked = await lockWallet(strapi, trx, Number(walletId));
+
+      const original = await strapi.db.query('api::transaction.transaction').findOne({
+        where: { reference },
+        populate: { wallet: { populate: ['user'] }, game: true },
+      });
+      if (!original) throw walletError('transactionMissing', { reference });
+
+      const ownerId = original.wallet?.user?.id;
+      if (String(ownerId) !== String(userId)) {
+        throw walletError('forbidden', { reference });
+      }
+      if (original.status === 'reversed') {
+        throw walletError('alreadyReversed', { reference });
+      }
+
       const refund = Math.abs(Number(original.amount));
       const after = locked.balance + refund;
 
@@ -561,23 +572,27 @@ async function reverseTransaction(
           where: { id: locked.id, balance: locked.balance },
           data: { balance: after },
         });
-
       if (!updated || updated.count === 0) {
-        throw new ApplicationError('Конфликт обновления баланса, повторите операцию');
+        throw walletError('balanceConflict', { walletId: locked.id });
       }
 
-      await strapi.db.query('api::transaction.transaction').update({
-        where: { id: original.id },
+      // Атомарный захват статуса: второй параллельный reverse получит count === 0
+      const claim = await strapi.db.query('api::transaction.transaction').updateMany({
+        where: { id: original.id, status: original.status },
         data: { status: 'reversed' },
       });
+      if (!claim || claim.count === 0) {
+        throw walletError('alreadyReversed', { reference });
+      }
 
+      // Детерминированный reference компенсации исключает повторную запись
       await recordTransaction(strapi, {
         walletId: locked.id,
         type: 'refund',
         amount: refund,
         balanceBefore: locked.balance,
         balanceAfter: after,
-        reference: `${reference}_refund_${Date.now()}`,
+        reference: `${reference}_refund`,
         gameId: original.game?.id ?? null,
         metadata: { reversedReference: reference },
       });

@@ -1,14 +1,53 @@
-export default ({ env }) => ({
-  // ... (если у тебя здесь были другие плагины, например 'upload' или 'email', 
-  // просто оставь их внутри этой скобки, но добавь блок users-permissions, как ниже)
+import type { Core } from '@strapi/strapi';
 
+const allowedMediaTypes = [
+  'image/*',
+  'video/*',
+  'audio/*',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.*',
+  'text/plain',
+  'text/csv',
+];
+
+const deniedTypes = [
+  'image/svg+xml',
+  'application/vnd.microsoft.portable-executable',
+  'application/x-msdownload',
+  'application/x-msdos-program',
+  'application/x-executable',
+  'application/x-dosexec',
+  'application/x-sh',
+  'text/x-shellscript',
+  'application/x-mach-binary',
+];
+
+const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin => ({
   'users-permissions': {
     config: {
+      jwtManagement: 'refresh',
+      sessions: {
+        httpOnly: true,
+      },
       register: {
         allowedFields: ['username', 'email', 'password'],
       },
+      ratelimit: {
+        enabled: true,
+        interval: 60 * 1000,
+        max: 10,
+      },
     },
   },
-
-  // ... (остальные плагины)
+  upload: {
+    config: {
+      security: {
+        allowedTypes: allowedMediaTypes,
+        deniedTypes,
+      },
+    },
+  },
 });
+
+export default config;
