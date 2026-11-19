@@ -210,6 +210,7 @@ export async function createForumPost(payload: {
 export interface SupportTicketItem {
   id: string;
   TicketNumber?: string;
+  Author?: string;
   Subject: string;
   Category?: string;
   Priority?: string;
@@ -244,9 +245,6 @@ export async function createSupportTicket(payload: {
   Category: string;
   Priority: string;
   Message: string;
-  ContactEmail: string;
-  Status?: string;
-  TicketNumber?: string;
 }) {
   return postToStrapi("support-tickets", payload);
 }

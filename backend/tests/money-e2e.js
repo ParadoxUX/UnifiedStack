@@ -76,12 +76,33 @@ async function main() {
   assert(a.status === 200 && b.status === 200, 'повторный deposit принят');
   assert(b.body.data.balance === a.body.data.balance, 'повторный deposit не начислил дважды');
 
+  // Параллельные пополнения с одним reference: все 200, начисление ровно одно.
+  const raceRef = `dep_race_${Date.now()}`;
+  const balanceBeforeRace = (await api('/wallets/me')).body.data.balance;
+  const raceDeps = await Promise.all(
+    Array.from({ length: 4 }, () =>
+      api('/wallets/deposit', {
+        method: 'POST',
+        body: JSON.stringify({ amount: 25, reference: raceRef }),
+      })
+    )
+  );
+  assert(
+    raceDeps.every((r) => r.status === 200),
+    `параллельные deposit с одним reference идемпотентны (${raceDeps.map((r) => r.status).join(',')})`
+  );
+  const balanceAfterRace = (await api('/wallets/me')).body.data.balance;
+  assert(
+    balanceAfterRace === balanceBeforeRace + 25,
+    `параллельный deposit начислен ровно один раз (${balanceBeforeRace} -> ${balanceAfterRace})`
+  );
+
   const bad = await api('/wallets/withdraw', { method: 'POST', body: JSON.stringify({ amount: 9_999_999 }) });
   assert(bad.status === 400, 'списание больше баланса отклонено');
 
   // Параллельные покупки — отдельный пользователь с достаточным балансом.
   await register(20_000);
-  const { game } = await getGame();
+  const { game, list } = await getGame();
   const gameId = game.documentId ?? game.id;
   const price = Number(game.Price ?? 0);
 
@@ -142,6 +163,37 @@ async function main() {
       body: JSON.stringify({ reference: purchaseTx.reference }),
     });
     assert(rev.status === 200 && rev.body.data.balance === after + price, 'возврат вернул деньги');
+  }
+
+  // Параллельные покупки РАЗНЫХ игр: на PostgreSQL их сериализует FOR UPDATE,
+  // на SQLite — очередь операций по кошельку. Результат должен совпадать:
+  // обе покупки успешны, баланс уменьшен на сумму цен.
+  const candidates = list.filter(
+    (g) => g.purchasable !== false && String(g.id) !== String(game.id)
+  );
+  if (candidates.length >= 2) {
+    const [g1, g2] = candidates.slice(0, 2);
+    const balanceBeforePair = (await api('/wallets/me')).body.data.balance;
+    const pair = await Promise.all([
+      api('/wallets/purchase', {
+        method: 'POST',
+        body: JSON.stringify({ gameId: g1.documentId ?? g1.id, reference: `pair_a_${Date.now()}` }),
+      }),
+      api('/wallets/purchase', {
+        method: 'POST',
+        body: JSON.stringify({ gameId: g2.documentId ?? g2.id, reference: `pair_b_${Date.now()}` }),
+      }),
+    ]);
+    assert(
+      pair.every((r) => r.status === 200),
+      `две параллельные покупки разных игр обе успешны (${pair.map((r) => r.status).join(',')})`
+    );
+    const balanceAfterPair = (await api('/wallets/me')).body.data.balance;
+    const expected = balanceBeforePair - Number(g1.Price ?? 0) - Number(g2.Price ?? 0);
+    assert(
+      balanceAfterPair === expected,
+      `баланс уменьшен на сумму двух цен (${balanceBeforePair} -> ${balanceAfterPair})`
+    );
   }
 
   console.log('\nВсе проверки пройдены.');

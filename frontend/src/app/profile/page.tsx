@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import Link from 'next/link';
 import { getJSON, setJSON, getItem, setItem } from '@/lib/storage';
 import { getCurrentUser } from '@/lib/auth';
@@ -17,10 +17,12 @@ import {
   SteamCard,
 } from '@/lib/steamCards';
 import SteamCardComp from '@/components/library/SteamCard';
+import MediaGallery from '@/components/profile/MediaGallery';
 import PointsShop from '@/components/shop/PointsShop';
 import EmptyState from '@/components/ui/EmptyState';
 import Icon from '@/components/ui/Icon';
 import { showToast } from '@/lib/toast';
+import { pluralScreenshots } from '@/lib/plural';
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://127.0.0.1:1337';
 
@@ -50,12 +52,37 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   invisible: { label: 'Невидимка', color: '#64748b' },
 };
 
+const PROFILE_TABS = ['games', 'cards', 'media', 'notes'] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
+
 export default function ProfilePage() {
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'cards' | 'media' | 'notes'>('games');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('games');
   const [showShop, setShowShop] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  // Клавиатурная навигация по вкладкам (ARIA tabs pattern).
+  const handleTabKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    const { key } = event;
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+    event.preventDefault();
+
+    let nextIndex = index;
+    if (key === 'ArrowRight') nextIndex = (index + 1) % PROFILE_TABS.length;
+    if (key === 'ArrowLeft') nextIndex = (index - 1 + PROFILE_TABS.length) % PROFILE_TABS.length;
+    if (key === 'Home') nextIndex = 0;
+    if (key === 'End') nextIndex = PROFILE_TABS.length - 1;
+
+    const nextTab = PROFILE_TABS[nextIndex];
+    setActiveTab(nextTab);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`profile-tab-${nextTab}`)?.focus();
+    });
+  };
 
   // Discord-style profile state
   const [displayName, setDisplayName] = useState('');
@@ -409,23 +436,69 @@ export default function ProfilePage() {
 
         {/* Правая рабочая область профиля */}
         <main className="us-dc-main">
-          <div className="us-dc-tabs">
-            <button type="button" className={`us-tab-pill ${activeTab === 'games' ? 'active' : ''}`} onClick={() => setActiveTab('games')}>
+          <div className="us-dc-tabs" role="tablist" aria-label="Разделы профиля">
+            <button
+              type="button"
+              role="tab"
+              id="profile-tab-games"
+              aria-selected={activeTab === 'games'}
+              aria-controls="profile-panel-games"
+              tabIndex={activeTab === 'games' ? 0 : -1}
+              className={`us-tab-pill ${activeTab === 'games' ? 'active' : ''}`}
+              onClick={() => setActiveTab('games')}
+              onKeyDown={(event) => handleTabKeyDown(event, 0)}
+            >
               Игры ({games.length})
             </button>
-            <button type="button" className={`us-tab-pill ${activeTab === 'cards' ? 'active' : ''}`} onClick={() => setActiveTab('cards')}>
+            <button
+              type="button"
+              role="tab"
+              id="profile-tab-cards"
+              aria-selected={activeTab === 'cards'}
+              aria-controls="profile-panel-cards"
+              tabIndex={activeTab === 'cards' ? 0 : -1}
+              className={`us-tab-pill ${activeTab === 'cards' ? 'active' : ''}`}
+              onClick={() => setActiveTab('cards')}
+              onKeyDown={(event) => handleTabKeyDown(event, 1)}
+            >
               Карточки и крафт ({cards.length})
             </button>
-            <button type="button" className={`us-tab-pill ${activeTab === 'media' ? 'active' : ''}`} onClick={() => setActiveTab('media')}>
-              Галерея ({screenshots.length})
+            <button
+              type="button"
+              role="tab"
+              id="profile-tab-media"
+              aria-selected={activeTab === 'media'}
+              aria-controls="profile-panel-media"
+              tabIndex={activeTab === 'media' ? 0 : -1}
+              className={`us-tab-pill ${activeTab === 'media' ? 'active' : ''}`}
+              onClick={() => setActiveTab('media')}
+              onKeyDown={(event) => handleTabKeyDown(event, 2)}
+            >
+              Галерея ({pluralScreenshots(screenshots.length)})
             </button>
-            <button type="button" className={`us-tab-pill ${activeTab === 'notes' ? 'active' : ''}`} onClick={() => setActiveTab('notes')}>
+            <button
+              type="button"
+              role="tab"
+              id="profile-tab-notes"
+              aria-selected={activeTab === 'notes'}
+              aria-controls="profile-panel-notes"
+              tabIndex={activeTab === 'notes' ? 0 : -1}
+              className={`us-tab-pill ${activeTab === 'notes' ? 'active' : ''}`}
+              onClick={() => setActiveTab('notes')}
+              onKeyDown={(event) => handleTabKeyDown(event, 3)}
+            >
               Заметки ({notes.length})
             </button>
           </div>
 
           {activeTab === 'games' && (
-            <div className="us-dc-panel">
+            <div
+              className="us-dc-panel"
+              role="tabpanel"
+              id="profile-panel-games"
+              aria-labelledby="profile-tab-games"
+              tabIndex={0}
+            >
               <div className="us-dc-panel-head">
                 <h2>Коллекция игр</h2>
                 <Link href="/library" className="us-btn-secondary">Открыть лаунчер</Link>
@@ -455,7 +528,13 @@ export default function ProfilePage() {
           )}
 
           {activeTab === 'cards' && (
-            <div className="us-dc-panel">
+            <div
+              className="us-dc-panel"
+              role="tabpanel"
+              id="profile-panel-cards"
+              aria-labelledby="profile-tab-cards"
+              tabIndex={0}
+            >
               <div className="us-dc-panel-head">
                 <div>
                   <h2>Коллекционные карточки</h2>
@@ -526,9 +605,18 @@ export default function ProfilePage() {
           )}
 
           {activeTab === 'media' && (
-            <div className="us-dc-panel">
+            <div
+              className="us-dc-panel"
+              role="tabpanel"
+              id="profile-panel-media"
+              aria-labelledby="profile-tab-media"
+              tabIndex={0}
+            >
               <div className="us-dc-panel-head">
-                <h2>Скриншоты и арты</h2>
+                <h2>
+                  Скриншоты и арты{' '}
+                  <span className="us-dc-count">{pluralScreenshots(screenshots.length)}</span>
+                </h2>
                 <label className="btn-auth-launch" style={{ cursor: 'pointer' }}>
                   + Загрузить скриншот
                   <input type="file" accept="image/*" hidden onChange={(e) => handleImageUpload(e, 'screenshot')} />
@@ -537,30 +625,26 @@ export default function ProfilePage() {
               {screenshots.length === 0 ? (
                 <EmptyState title="Галерея пуста" desc="Загрузите лучшие моменты из ваших игр." />
               ) : (
-                <div className="screenshots-grid">
-                  {screenshots.map((img, i) => (
-                    <div key={img.id || i} className="screenshot">
-                      <img src={img.src} alt="Скриншот" />
-                      <button
-                        type="button"
-                        className="profile-remove-btn"
-                        onClick={() => {
-                          const next = screenshots.filter((_, idx) => idx !== i);
-                          setScreenshots(next);
-                          setJSON('user_screenshots', next);
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <MediaGallery
+                  screenshots={screenshots}
+                  onRemove={(index) => {
+                    const next = screenshots.filter((_, idx) => idx !== index);
+                    setScreenshots(next);
+                    setJSON('user_screenshots', next);
+                  }}
+                />
               )}
             </div>
           )}
 
           {activeTab === 'notes' && (
-            <div className="us-dc-panel">
+            <div
+              className="us-dc-panel"
+              role="tabpanel"
+              id="profile-panel-notes"
+              aria-labelledby="profile-tab-notes"
+              tabIndex={0}
+            >
               <h2>Игровые заметки и гайды</h2>
               <div className="us-note-form">
                 <input

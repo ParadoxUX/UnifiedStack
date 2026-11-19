@@ -969,6 +969,7 @@ export interface ApiLibraryItemLibraryItem extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     game: Schema.Attribute.Relation<'manyToOne', 'api::game.game'>;
+    gameId: Schema.Attribute.Integer;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -985,6 +986,7 @@ export interface ApiLibraryItemLibraryItem extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     wallet: Schema.Attribute.Relation<'manyToOne', 'api::wallet.wallet'>;
+    walletId: Schema.Attribute.Integer;
   };
 }
 
@@ -1103,6 +1105,7 @@ export interface ApiSupportTicketSupportTicket
     draftAndPublish: false;
   };
   attributes: {
+    Author: Schema.Attribute.String;
     Category: Schema.Attribute.String;
     ContactEmail: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;

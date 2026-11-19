@@ -22,6 +22,12 @@
       "relation": "manyToOne",
       "target": "api::game.game"
     },
+    "walletId": {
+      "type": "integer"
+    },
+    "gameId": {
+      "type": "integer"
+    },
     "status": {
       "type": "enumeration",
       "enum": ["owned", "installed", "refunded"],

@@ -125,17 +125,22 @@ export default function SupportPage() {
 
   // Создание тикета
   const handleCreateTicket = async () => {
+    const user = getCurrentUser();
+    if (!user) {
+      showToast("Войдите, чтобы создать тикет", "error");
+      return;
+    }
+
     const { Subject, Message, ContactEmail } = ticketForm;
     if (!Subject.trim() || !Message.trim() || !ContactEmail.trim() || submitting) return;
     setSubmitting(true);
 
+    // Author, ContactEmail и TicketNumber формирует сервер — в теле их не передаём.
     const payload = {
-      ...ticketForm,
       Subject: Subject.trim(),
+      Category: ticketForm.Category,
+      Priority: ticketForm.Priority,
       Message: Message.trim(),
-      ContactEmail: ContactEmail.trim().toLowerCase(),
-      Status: "open",
-      TicketNumber: "TK-" + Date.now().toString(36).toUpperCase(),
     };
 
     try {
@@ -145,7 +150,7 @@ export default function SupportPage() {
         setJSON("user_tickets", [...savedIds, created.documentId || created.id]);
       }
       showToast(
-        `Тикет создан! Номер: ${payload.TicketNumber}. Ответ придёт на ${payload.ContactEmail}`,
+        `Тикет создан! Номер: ${created?.TicketNumber || "—"}. Ответ придёт на ${created?.ContactEmail || user.email}`,
         "success"
       );
       setTicketForm({
@@ -506,14 +511,12 @@ export default function SupportPage() {
               </div>
 
               <div className="ticket-form-field">
-                <label>Email для ответа *</label>
+                <label>Email для ответа (из аккаунта) *</label>
                 <input
                   type="email"
                   placeholder="you@example.com"
                   value={ticketForm.ContactEmail}
-                  onChange={(e) =>
-                    setTicketForm({ ...ticketForm, ContactEmail: e.target.value })
-                  }
+                  readOnly
                   className="ticket-input"
                 />
               </div>

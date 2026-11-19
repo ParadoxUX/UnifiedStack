@@ -16,6 +16,9 @@
       "type": "string",
       "unique": true
     },
+    "Author": {
+      "type": "string"
+    },
     "Subject": {
       "type": "string",
       "required": true

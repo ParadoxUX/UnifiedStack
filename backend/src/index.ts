@@ -14,7 +14,7 @@ const PUBLIC_PERMISSIONS: Array<{ api: string; singular: string; actions: string
   { api: 'forum-categories', singular: 'forum-category', actions: ['find', 'findOne'] },
   { api: 'forum-topics', singular: 'forum-topic', actions: ['find', 'findOne', 'create'] },
   { api: 'forum-posts', singular: 'forum-post', actions: ['find', 'findOne', 'create'] },
-  { api: 'support-tickets', singular: 'support-ticket', actions: ['find', 'findOne', 'create'] },
+  { api: 'support-tickets', singular: 'support-ticket', actions: ['find', 'findOne'] },
   { api: 'groups', singular: 'group', actions: ['find', 'findOne', 'create'] },
   { api: 'faqs', singular: 'faq', actions: ['find', 'findOne'] },
   { api: 'contacts', singular: 'contact', actions: ['find', 'findOne'] },
@@ -22,6 +22,13 @@ const PUBLIC_PERMISSIONS: Array<{ api: string; singular: string; actions: string
   { api: 'requirements', singular: 'requirement', actions: ['find', 'findOne'] },
   { api: 'popular-topics', singular: 'popular-topic', actions: ['find', 'findOne'] },
 ];
+
+// Доступно только роли Authenticated (аноним создать тикет не может).
+const AUTHENTICATED_ONLY_PERMISSIONS: Array<{
+  api: string;
+  singular: string;
+  actions: string[];
+}> = [{ api: 'support-tickets', singular: 'support-ticket', actions: ['create'] }];
 
 const MIME_MAP: Record<string, string> = {
   '.webp': 'image/webp',
@@ -230,6 +237,23 @@ async function ensureRolePermissions(
   await Promise.all(toCreate);
 }
 
+async function revokeRolePermissions(
+  strapi: Core.Strapi,
+  roleType: string,
+  actions: string[]
+) {
+  const role = await strapi.db.query('plugin::users-permissions.role').findOne({
+    where: { type: roleType },
+  });
+  if (!role) return;
+
+  for (const action of actions) {
+    await strapi.db
+      .query('plugin::users-permissions.permission')
+      .delete({ where: { role: role.id, action } });
+  }
+}
+
 async function cleanupInvalidPermissions(strapi: Core.Strapi) {
   const invalid = await strapi.db
     .query('plugin::users-permissions.permission')
@@ -256,5 +280,10 @@ export default {
     await cleanupInvalidPermissions(strapi);
     await ensureRolePermissions(strapi, 'public', PUBLIC_PERMISSIONS);
     await ensureRolePermissions(strapi, 'authenticated', PUBLIC_PERMISSIONS);
+    await ensureRolePermissions(strapi, 'authenticated', AUTHENTICATED_ONLY_PERMISSIONS);
+    // Убираем create из public у уже существующих БД.
+    await revokeRolePermissions(strapi, 'public', [
+      'api::support-ticket.support-ticket.create',
+    ]);
   },
 };

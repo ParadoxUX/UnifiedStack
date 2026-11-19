@@ -58,6 +58,10 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Database 
         filename: path.join(__dirname, '..', '..', env('DATABASE_FILENAME', '.tmp/data.db')),
       },
       useNullAsDefault: true,
+      // better-sqlite3 синхронный: одна транзакция держит единственное
+      // соединение. Пул из нескольких соединений приводит к дедлоку при
+      // параллельных запросах, поэтому SQLite всегда работает в 1 соединение.
+      pool: { min: 1, max: 1 },
     },
   };
 

@@ -4,7 +4,7 @@
 
 ## Структура проекта
 
-- `backend/` — Strapi v5 CMS (API, JWT-авторизация, сервис кошелька, SQLite, автосид 30 игр и тарифов)
+- `backend/` — Strapi v5 CMS (API, JWT-авторизация, сервис кошелька, SQLite/PostgreSQL, автосид 30 игр и тарифов)
 - `frontend/` — Next.js 16 + React 19 + TypeScript (витрина, страница игры в стиле Steam, библиотека, облако, профиль)
 - `docs/` — документация платёжной системы (`docs/payments.md`)
 
@@ -34,6 +34,23 @@
 - Админ-панель: `http://localhost:1337/admin` (при первом входе создайте локального администратора)
 - При старте автоматически создаётся SQLite БД (`backend/.tmp/data.db`), загружаются 30 игр с обложками, баннеры и тарифы.
 
+#### База данных
+
+По умолчанию используется SQLite (`DATABASE_CLIENT=sqlite`). Денежные гарантии — `UNIQUE transactions.reference`, `UNIQUE wallets.user`, `UNIQUE library_items(wallet_id, game_id)`, `CHECK (balance >= 0)` — работают **одинаково на SQLite и PostgreSQL** и накладываются автоматически при старте. Подробности: [`docs/payments.md`](docs/payments.md).
+
+Для прода/стейджа рекомендуется PostgreSQL:
+
+    docker compose up -d
+    # в backend/.env:
+    # DATABASE_CLIENT=postgres
+    # DATABASE_HOST=localhost
+    # DATABASE_PORT=5432
+    # DATABASE_NAME=unifiedstack
+    # DATABASE_USERNAME=strapi
+    # DATABASE_PASSWORD=strapi
+
+Драйвер `pg` уже в зависимостях бэкенда.
+
 ### 3. Запуск фронтенда (Next.js — порт 3000)
 
 Откройте второй терминал и выполните:
@@ -49,4 +66,14 @@
 
     cd backend && npm run build
     cd ../frontend && npm run build
+
+    # денежная логика (Strapi запущен на :1337)
     cd ../backend && node tests/money-e2e.js
+
+    # ограничения БД (SQLite по умолчанию; для PostgreSQL задайте DATABASE_CLIENT=postgres)
+    node tests/constraints-e2e.js
+
+    # безопасность тикетов поддержки (аноним, подмена Author, rate limit)
+    node tests/support-e2e.js
+
+Результаты `money-e2e.js` одинаковы на SQLite и PostgreSQL; для второго инстанса задайте `API_URL`. Полный список проверок — в [`docs/payments.md`](docs/payments.md#проверка).
