@@ -69,6 +69,13 @@ export default {
     const { gameId, reference } = ctx.request.body ?? {};
     if (!gameId) ctx.throw(400, 'gameId обязателен');
 
+    if (typeof gameId !== 'number' && typeof gameId !== 'string') {
+      ctx.throw(400, 'gameId должен быть числом или строкой');
+    }
+    if (typeof gameId === 'string' && gameId.trim() === '') {
+      ctx.throw(400, 'gameId не может быть пустым');
+    }
+
     try {
       const result = await walletService.purchaseGame(strapi, {
         userId: user.id,
@@ -88,12 +95,12 @@ export default {
   },
 
   async reverse(ctx: any) {
-    requireUser(ctx);
+    const user = requireUser(ctx);
     const { reference } = ctx.request.body ?? {};
     if (!reference) ctx.throw(400, 'reference обязателен');
 
     try {
-      const result = await walletService.reverseTransaction(strapi, reference);
+      const result = await walletService.reverseTransaction(strapi, reference, user.id);
       ctx.body = { data: result };
     } catch (err: any) {
       ctx.throw(400, err?.message || 'Ошибка возврата');

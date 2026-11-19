@@ -38,13 +38,27 @@ async function ensureWallet(strapi: Core.Strapi, userId: number | string) {
   });
   if (existing) return existing;
 
-  return strapi.db.query('api::wallet.wallet').create({
-    data: {
-      user: userId,
-      balance: 0,
-      currency: 'RUB',
-    },
-  });
+  try {
+    return await strapi.db.query('api::wallet.wallet').create({
+      data: {
+        user: userId,
+        balance: 0,
+        currency: 'RUB',
+      },
+    });
+  } catch (err: any) {
+    const isUniqueViolation =
+      err?.code === '23505' ||
+      (typeof err?.message === 'string' &&
+        err.message.includes('UNIQUE constraint failed'));
+    if (isUniqueViolation) {
+      const fallback = await strapi.db.query('api::wallet.wallet').findOne({
+        where: { user: { id: userId } },
+      });
+      if (fallback) return fallback;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -65,7 +79,6 @@ async function lockWallet(
     ]);
     const row = res?.rows?.[0] ?? res?.[0]?.[0];
     if (!row) throw new ApplicationError('Кошелёк не найден');
-    // Strapi добавляет префикс таблиц только при заданном tableName prefix.
     return { id: Number(row.id), balance: Number(row.balance) };
   }
 
@@ -75,8 +88,7 @@ async function lockWallet(
 }
 
 /**
- * Запись транзакции в журнал. reference уникален — повторная запись с тем же
- * reference считается повтором (идемпотентность) и не создаётся.
+ * Запись транзакции в журнал. reference уникален.
  */
 async function recordTransaction(
   strapi: Core.Strapi,
@@ -115,8 +127,7 @@ async function recordTransaction(
 }
 
 /**
- * Универсальное движение средств. delta > 0 — пополнение, delta < 0 — списание.
- * Всё атомарно: блокировка кошелька + обновление баланса + журнал.
+ * Универсальное движение средств.
  */
 async function move(
   strapi: Core.Strapi,
@@ -146,8 +157,6 @@ async function move(
       );
     }
 
-    // Условное обновление: сработает только если баланс не изменился
-    // между выборкой и апдейтом (защита от гонок вне Postgres).
     const updated = await strapi.db
       .query('api::wallet.wallet')
       .updateMany({
@@ -193,7 +202,6 @@ async function deposit(
     where: { reference: args.reference },
   });
   if (existing) {
-    // Идемпотентность: повторный вызов с тем же reference не начисляет повторно.
     return {
       balance: wallet.balance,
       walletId: wallet.id,
@@ -228,14 +236,6 @@ async function withdraw(
 
 /**
  * Покупка игры.
- *
- * Одна транзакция:
- *  1. блокировка кошелька (FOR UPDATE) — защита от двойного списания;
- *  2. проверка, что игра ещё не куплена;
- *  3. списание баланса;
- *  4. запись в библиотеку (LibraryItem);
- *  5. обновление статуса игры: purchaseCount += 1, lastPurchasedAt, purchasable=false
- *     для лицензионных игр / isOwned=true для текущего пользователя.
  */
 async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
   const wallet = await ensureWallet(strapi, args.userId);
@@ -270,7 +270,6 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
   }
 
   if (price === 0) {
-    // Бесплатная игра: списание не нужно, но покупка всё равно логируется.
     return strapi.db.transaction(async (trx) => {
       const locked = await lockWallet(strapi, trx, Number(wallet.id));
       const item = await createLibraryItem(strapi, locked.id, game, 0);
@@ -307,7 +306,7 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
 }
 
 /**
- * Создание записи в библиотеке + обновление статуса игры у пользователя.
+ * Создание записи в библиотеке.
  */
 async function createLibraryItem(strapi: Core.Strapi, walletId: number, game: any, price: number) {
   return strapi.db.query('api::library-item.library-item').create({
@@ -322,10 +321,7 @@ async function createLibraryItem(strapi: Core.Strapi, walletId: number, game: an
 }
 
 /**
- * Обновление статуса игры после покупки:
- *  - счётчик покупок;
- *  - дата последней покупки;
- *  - если у игры ограниченный тираж (stock), уменьшаем и блокируем при нуле.
+ * Обновление статуса игры после покупки.
  */
 async function bumpGameStatus(strapi: Core.Strapi, game: any) {
   const data: Record<string, unknown> = {
@@ -346,14 +342,24 @@ async function bumpGameStatus(strapi: Core.Strapi, game: any) {
 }
 
 /**
- * Возврат (откат) транзакции: компенсирующая операция + пометка исходной.
+ * Возврат (откат) транзакции.
  */
-async function reverseTransaction(strapi: Core.Strapi, reference: string) {
+async function reverseTransaction(
+  strapi: Core.Strapi,
+  reference: string,
+  userId: number | string
+) {
   const original = await strapi.db.query('api::transaction.transaction').findOne({
     where: { reference },
-    populate: { wallet: true, game: true },
+    populate: { wallet: { populate: ['user'] }, game: true },
   });
   if (!original) throw new ApplicationError('Транзакция не найдена');
+
+  const ownerId = original.wallet?.user?.id;
+  if (String(ownerId) !== String(userId)) {
+    throw new ApplicationError('Нельзя отменить чужую транзакцию');
+  }
+
   if (original.status === 'reversed') throw new ApplicationError('Транзакция уже отменена');
 
   const walletId = original.wallet?.id;
