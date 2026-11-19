@@ -3,8 +3,26 @@
  * Запуск: node tests/proxy-e2e.js
  */
 
+const { createHmac } = require('node:crypto');
+
 const FRONT = process.env.FRONT_URL || 'http://127.0.0.1:3000';
 const STRAPI = process.env.STRAPI_URL || 'http://127.0.0.1:1337';
+const PAYMENT_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || '';
+
+async function fund(userId, amount, eventId) {
+  const body = JSON.stringify({ userId, amount });
+  const res = await fetch(`${STRAPI}/api/payments/webhook`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-payment-event-id': eventId,
+      'x-payment-signature':
+        'sha256=' + createHmac('sha256', PAYMENT_SECRET).update(body).digest('hex'),
+    },
+    body,
+  });
+  return res.json().catch(() => ({}));
+}
 
 function assert(cond, message) {
   if (!cond) {
@@ -30,12 +48,8 @@ async function main() {
   assert(!!reg.jwt, 'пользователь Strapi создан');
   const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${reg.jwt}` };
 
-  const deposit = await fetch(`${FRONT}/api/wallet/wallets/deposit`, {
-    method: 'POST',
-    headers: auth,
-    body: JSON.stringify({ amount: 2500, reference: `proxy_dep_${ts}` }),
-  }).then((r) => r.json());
-  assert(deposit?.data?.balance === 2500, `пополнение через прокси: ${deposit?.data?.balance}`);
+  const deposit = await fund(reg.user.id, 2500, `proxy_dep_${ts}`);
+  assert(deposit?.data?.balance === 2500, `пополнение через webhook: ${deposit?.data?.balance}`);
 
   const me = await fetch(`${FRONT}/api/wallet/wallets/me`, { headers: auth }).then((r) => r.json());
   assert(me?.data?.balance === 2500, 'баланс читается через прокси');
@@ -65,9 +79,9 @@ async function main() {
   const incorrect = await fetch(`${FRONT}/api/wallet/wallets/deposit`, {
     method: 'POST',
     headers: auth,
-    body: JSON.stringify({ amount: -100 }),
+    body: JSON.stringify({ amount: 100 }),
   });
-  assert(incorrect.status === 400, 'отрицательное пополнение отклонено');
+  assert(incorrect.status === 404, 'публичный deposit через прокси недоступен');
 
   console.log('\nПрокси работает корректно.');
 }

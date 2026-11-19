@@ -23,26 +23,6 @@ export default {
     ctx.body = { data: { ...wallet, transactions } };
   },
 
-  async deposit(ctx: any) {
-    const user = requireUser(ctx);
-    const { amount, reference } = ctx.request.body ?? {};
-    const parsed = Number(amount);
-
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      ctx.throw(400, 'amount должен быть целым положительным числом');
-    }
-    if (parsed > 1_000_000) {
-      ctx.throw(400, 'Разовая сумма пополнения не может превышать 1 000 000');
-    }
-
-    const result = await walletService.deposit(strapi, {
-      userId: user.id,
-      amount: parsed,
-      reference: reference || `deposit_${user.id}_${Date.now()}`,
-    });
-    ctx.body = { data: result };
-  },
-
   async withdraw(ctx: any) {
     const user = requireUser(ctx);
     const { amount, reference } = ctx.request.body ?? {};

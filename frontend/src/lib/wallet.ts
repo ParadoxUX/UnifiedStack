@@ -90,11 +90,31 @@ export async function fetchWallet(): Promise<Wallet> {
   return request<Wallet>("/wallets/me");
 }
 
-export async function deposit(amount: number, reference?: string): Promise<Wallet> {
-  return request<Wallet>("/wallets/deposit", {
+export async function deposit(amount: number, _reference?: string): Promise<Wallet> {
+  // Прямой /wallets/deposit закрыт: зачисление идёт только через платёжный
+  // webhook. В демо-режиме вызов проходит через серверный чекаут Next.js,
+  // который сам определяет пользователя по JWT и подписывает запрос.
+  const token = getToken();
+  if (!token) throw new WalletError("Требуется авторизация", 401);
+
+  const res = await fetch("/api/payments/checkout", {
     method: "POST",
-    body: JSON.stringify({ amount, reference }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ amount }),
+    cache: "no-store",
   });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new WalletError(
+      json?.error?.message || json?.message || "Ошибка проведения платежа",
+      res.status
+    );
+  }
+  return json.data as Wallet;
 }
 
 export async function withdraw(amount: number, reference?: string): Promise<Wallet> {

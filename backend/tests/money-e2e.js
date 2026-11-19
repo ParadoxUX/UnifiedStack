@@ -3,9 +3,32 @@
  * Запуск: node tests/money-e2e.js
  */
 
+const { createHmac } = require('node:crypto');
+
 const API = process.env.API_URL || 'http://127.0.0.1:1337';
+const PAYMENT_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || '';
 
 let jwt = '';
+let currentUser = null;
+
+/** Зачисление через защищённый webhook платёжного провайдера. */
+async function fund(userId, amount, eventId) {
+  const body = JSON.stringify({ userId, amount });
+  const signature =
+    'sha256=' + createHmac('sha256', PAYMENT_SECRET).update(body).digest('hex');
+
+  const res = await fetch(`${API}/api/payments/webhook`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-payment-event-id': eventId,
+      'x-payment-signature': signature,
+    },
+    body,
+  });
+  const json = await res.json().catch(() => ({}));
+  return { status: res.status, body: json };
+}
 
 async function api(path, init = {}) {
   const res = await fetch(`${API}/api${path}`, {
@@ -38,12 +61,10 @@ const ts = Date.now() + Math.floor(Math.random() * 1000);
   });
   assert(res.status === 200 && res.body.jwt, `регистрация пользователя (${res.status}: ${JSON.stringify(res.body).slice(0, 200)})`);
   jwt = res.body.jwt;
+  currentUser = res.body.user;
 
   if (balance) {
-    const dep = await api('/wallets/deposit', {
-      method: 'POST',
-      body: JSON.stringify({ amount: balance, reference: `init_${ts}` }),
-    });
+    const dep = await fund(currentUser.id, balance, `init_${ts}`);
     assert(dep.status === 200 && dep.body.data.balance === balance, `стартовый баланс ${balance}`);
   }
   return res.body.user;
@@ -64,17 +85,34 @@ async function main() {
   assert(me.status === 200, `кошелёк создан (${me.status})`);
   assert(typeof me.body.data.balance === 'number', `баланс читается: ${me.body.data.balance}`);
 
-  const dep = await api('/wallets/deposit', {
+  // Публичный deposit закрыт.
+  const publicDeposit = await api('/wallets/deposit', {
     method: 'POST',
-    body: JSON.stringify({ amount: 1000, reference: `dep_e2e_${Date.now()}` }),
+    body: JSON.stringify({ amount: 1000 }),
   });
-  assert(dep.status === 200 && dep.body.data.balance === 1000, 'пополнение на 1000');
+  assert(publicDeposit.status === 404, 'публичный /wallets/deposit недоступен');
+
+  // Неверная подпись webhook не проходит.
+  const badSig = await fetch(`${API}/api/payments/webhook`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-payment-event-id': `bad_sig_${Date.now()}`,
+      'x-payment-signature': 'sha256=' + '0'.repeat(64),
+    },
+    body: JSON.stringify({ userId: currentUser.id, amount: 1000 }),
+  });
+  assert(badSig.status === 401, 'webhook с неверной подписью отклонён');
+
+  const dep = await fund(currentUser.id, 1000, `dep_e2e_${Date.now()}`);
+  assert(dep.status === 200 && dep.body.data.balance === 1000, 'пополнение через webhook на 1000');
 
   const ref = `dep_idem_${Date.now()}`;
-  const a = await api('/wallets/deposit', { method: 'POST', body: JSON.stringify({ amount: 50, reference: ref }) });
-  const b = await api('/wallets/deposit', { method: 'POST', body: JSON.stringify({ amount: 50, reference: ref }) });
-  assert(a.status === 200 && b.status === 200, 'повторный deposit принят');
-  assert(b.body.data.balance === a.body.data.balance, 'повторный deposit не начислил дважды');
+  const a = await fund(currentUser.id, 50, ref);
+  const b = await fund(currentUser.id, 50, ref);
+  assert(a.status === 200 && b.status === 200, 'повторное платёжное событие принято');
+  assert(b.body.data.balance === a.body.data.balance, 'повтор события не начислил дважды');
+  assert(b.body.idempotent === true, 'повтор события помечен как idempotent');
 
   const bad = await api('/wallets/withdraw', { method: 'POST', body: JSON.stringify({ amount: 9_999_999 }) });
   assert(bad.status === 400, 'списание больше баланса отклонено');

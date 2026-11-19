@@ -19,13 +19,26 @@
 | Метод | Путь | Описание |
 |---|---|---|
 | GET | `/api/wallets/me` | кошелёк + последние 50 транзакций |
-| POST | `/api/wallets/deposit` | `{ amount, reference? }` — пополнение |
 | POST | `/api/wallets/withdraw` | `{ amount, reference? }` — списание |
 | POST | `/api/wallets/purchase` | `{ gameId, reference? }` — покупка |
 | GET | `/api/wallets/library` | библиотека пользователя |
 | POST | `/api/wallets/reverse` | `{ reference }` — возврат/откат |
 
 Фронтенд обращается к ним через серверный прокси Next.js: `/api/wallet/wallets/*` (`frontend/src/app/api/wallet/[...path]/route.ts`), который проверяет наличие JWT и пробрасывает запрос в Strapi.
+
+## Пополнение баланса
+
+Публичный `POST /api/wallets/deposit` **удалён**: пользователь не может начислить себе средства. Зачисление делает только платёжный webhook `POST /api/payments/webhook` (`backend/src/api/payment/`).
+
+Обязательные заголовки:
+- `x-payment-signature: sha256=<hex>` — HMAC-SHA256 от **сырого тела** запроса с секретом `PAYMENT_WEBHOOK_SECRET` (сравнение константного времени);
+- `x-payment-event-id` — idempotency key провайдера (8–128 символов `[A-Za-z0-9_.:-]`).
+
+Тело: `{ "userId": 12, "amount": 1000 }`. Секрет не задан → webhook отвечает `503` (fail closed); неверная подпись → `401`.
+
+Reference транзакции формируется как `payment_<event-id>`, поэтому повтор того же события возвращает уже созданную транзакцию с флагом `idempotent: true` и **не начисляет средства повторно**.
+
+Для локального демо есть роут `POST /api/payments/checkout` (`frontend/src/app/api/payments/checkout/route.ts`). Он включается только переменной `DEMO_PAYMENTS=true`, сам определяет пользователя по JWT и подписывает запрос к webhook секретом сервера. В проде он выключен: пополнение идёт только от реального провайдера.
 
 Маршруты кошелька объявлены с `auth: false`, поэтому не зависят от состояния таблицы `up_permissions`. Пользователя определяет middleware `backend/src/middlewares/wallet-auth.ts` (проверяет JWT через сервис users-permissions и кладёт его в `ctx.state.user`), контроллер отвечает 401 без пользователя.
 
