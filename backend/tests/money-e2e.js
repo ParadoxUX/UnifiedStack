@@ -144,6 +144,37 @@ async function main() {
     assert(rev.status === 200 && rev.body.data.balance === after + price, 'возврат вернул деньги');
   }
 
+  // Параллельный двойной возврат по одному reference: успешен ровно один.
+  const doubleRef = `dep_double_rev_${Date.now()}`;
+  const doubleDep = await api('/wallets/deposit', {
+    method: 'POST',
+    body: JSON.stringify({ amount: 1000, reference: doubleRef }),
+  });
+  assert(doubleDep.status === 200, 'создана транзакция для проверки двойного возврата');
+
+  const balanceBeforeDouble = (await api('/wallets/me')).body.data.balance;
+  const doubleResults = await Promise.all([
+    api('/wallets/reverse', {
+      method: 'POST',
+      body: JSON.stringify({ reference: doubleRef }),
+    }),
+    api('/wallets/reverse', {
+      method: 'POST',
+      body: JSON.stringify({ reference: doubleRef }),
+    }),
+  ]);
+  const doubleOk = doubleResults.filter((r) => r.status === 200);
+  if (doubleOk.length !== 1) {
+    doubleResults.forEach((r) => console.log('   ->', r.status, r.body?.error?.message));
+  }
+  assert(doubleOk.length === 1, 'из двух параллельных reverse успешен ровно один');
+
+  const balanceAfterDouble = (await api('/wallets/me')).body.data.balance;
+  assert(
+    balanceAfterDouble === balanceBeforeDouble + 1000,
+    `баланс увеличен ровно один раз (${balanceBeforeDouble} -> ${balanceAfterDouble})`
+  );
+
   console.log('\nВсе проверки пройдены.');
 }
 

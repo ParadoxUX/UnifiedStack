@@ -349,40 +349,53 @@ async function bumpGameStatus(strapi: Core.Strapi, game: any) {
  * Возврат (откат) транзакции: компенсирующая операция + пометка исходной.
  */
 async function reverseTransaction(strapi: Core.Strapi, reference: string) {
-  const original = await strapi.db.query('api::transaction.transaction').findOne({
-    where: { reference },
-    populate: { wallet: true, game: true },
-  });
-  if (!original) throw new ApplicationError('Транзакция не найдена');
-  if (original.status === 'reversed') throw new ApplicationError('Транзакция уже отменена');
-
-  const walletId = original.wallet?.id;
-  if (!walletId) throw new ApplicationError('У транзакции нет кошелька');
-
   return strapi.db.transaction(async (trx) => {
+    // Читаем и проверяем статус ВНУТРИ транзакции: проверка вне неё допускала,
+    // что два параллельных reverse одновременно увидят "completed".
+    const original = await strapi.db.query('api::transaction.transaction').findOne({
+      where: { reference },
+      populate: { wallet: true, game: true },
+    });
+    if (!original) throw new ApplicationError('Транзакция не найдена');
+    if (original.status === 'reversed') throw new ApplicationError('Транзакция уже отменена');
+
+    const walletId = original.wallet?.id;
+    if (!walletId) throw new ApplicationError('У транзакции нет кошелька');
+
     const locked = await lockWallet(strapi, trx, Number(walletId));
     const refund = Math.abs(Number(original.amount));
     const after = locked.balance + refund;
 
-    await strapi.db
+    const balanceUpdate = await strapi.db
       .query('api::wallet.wallet')
       .updateMany({
         where: { id: locked.id, balance: locked.balance },
         data: { balance: after },
       });
+    if (!balanceUpdate || balanceUpdate.count === 0) {
+      throw new ApplicationError('Конфликт обновления баланса, повторите операцию');
+    }
 
-    await strapi.db.query('api::transaction.transaction').update({
-      where: { id: original.id },
+    // Атомарный захват статуса: UPDATE ... WHERE id = ? AND status = <прочитанный>.
+    // Второй параллельный reverse не найдёт подходящей строки (count === 0)
+    // и не создаст вторую компенсацию, даже если СУБД не блокирует строки.
+    const claim = await strapi.db.query('api::transaction.transaction').updateMany({
+      where: { id: original.id, status: original.status },
       data: { status: 'reversed' },
     });
+    if (!claim || claim.count === 0) {
+      throw new ApplicationError('Транзакция уже отменена');
+    }
 
+    // Детерминированный reference компенсации: уникальный индекс не даст
+    // записать её дважды даже при повторе запроса после частичного сбоя.
     await recordTransaction(strapi, {
       walletId: locked.id,
       type: 'refund',
       amount: refund,
       balanceBefore: locked.balance,
       balanceAfter: after,
-      reference: `${reference}_refund_${Date.now()}`,
+      reference: `${reference}_refund`,
       gameId: original.game?.id ?? null,
       metadata: { reversedReference: reference },
     });
