@@ -58,7 +58,7 @@ export function setAuthCookie(res: NextResponse, token: string): void {
     value: token,
     httpOnly: true,
     sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE === 'true',
     path: '/',
     maxAge: AUTH_COOKIE_MAX_AGE,
   });
@@ -71,7 +71,7 @@ export function clearAuthCookie(res: NextResponse): void {
     value: '',
     httpOnly: true,
     sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE === 'true',
     path: '/',
     maxAge: 0,
   });

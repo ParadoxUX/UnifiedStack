@@ -22,6 +22,7 @@ import "@/styles/forums.css";
 import "@/styles/poisk.css";
 import "@/styles/ui-refresh.css";
 import "./globals.css";
+import "@/styles/pixelvault-theme.css";
 
 export const metadata: Metadata = {
   title: "UnifiedStack — Цифровая игровая платформа",

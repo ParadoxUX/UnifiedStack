@@ -1,88 +1,29 @@
 # UnifiedStack
 
-Игровая платформа, магазин цифровых копий и облачный гейминг: **Next.js 16** фронтенд + **Strapi v5** Headless CMS бэкенд.
+Цифровая игровая платформа: магазин игр и DLC, библиотека, защищённый кошелёк, облачный ПК-клуб и разделы сообщества.
 
-## Структура проекта
+## Стек
 
-- `backend/` — Strapi v5 CMS (API, JWT-авторизация, единый каталог игр с идемпотентным сидом по slug, сервис кошелька, SQLite/PostgreSQL, автосид 30 игр и тарифов)
-- `frontend/` — Next.js 16 + React 19 + TypeScript (витрина, страница игры в стиле Steam, библиотека, облако, профиль)
-- `docs/` — документация платёжной системы (`docs/payments.md`) и авторизации (`docs/auth.md`)
+| Слой | Технологии |
+| :--- | :--- |
+| Frontend | Next.js 16 (App Router, Turbopack), React 19, TypeScript |
+| Backend / CMS | Strapi v5, TypeScript, Knex, `koa-ratelimit` |
+| База данных | SQLite (`better-sqlite3`, локально) / PostgreSQL (production) |
+| Авторизация | `httpOnly` + `SameSite=Strict` cookie-сессия поверх JWT Strapi |
 
 ## Требования
 
-- Node.js `20+` (LTS)
-- npm `10+`
+- Node.js `>= 20.x`
+- npm `>= 10.x`
 - Git
 
-## Точная инструкция по запуску
+## Быстрый старт (локально)
 
-### 1. Клонирование репозитория
+### 1. Клонирование и установка зависимостей
 
-    git clone [https://github.com/ParadoxUX/UnifiedStack.git](https://github.com/ParadoxUX/UnifiedStack.git)
-    cd UnifiedStack
+```bash
+git clone <URL_РЕПОЗИТОРИЯ> UnifiedStack
+cd UnifiedStack
 
-### 2. Запуск бэкенда (Strapi v5 — порт 1337)
-
-Откройте первый терминал и выполните:
-
-    cd backend
-    npm install
-    copy .env.example .env
-    npm run develop
-
-- API: `http://localhost:1337`
-- Админ-панель: `http://localhost:1337/admin` (при первом входе создайте локального администратора)
-- При старте автоматически создаётся SQLite БД (`backend/.tmp/data.db`), загружаются 30 игр с обложками, баннеры и тарифы. Каталог игр — единый файл `backend/src/data/catalog.json`, сид идемпотентный (upsert по `slug`), повторный запуск не создаёт дубликатов.
-
-#### База данных
-
-По умолчанию используется SQLite (`DATABASE_CLIENT=sqlite`). Денежные гарантии — `UNIQUE transactions.reference`, `UNIQUE wallets.user`, `UNIQUE library_items(wallet_id, game_id)`, `CHECK (balance >= 0)` — работают **одинаково на SQLite и PostgreSQL** и накладываются автоматически при старте. Подробности: [`docs/payments.md`](docs/payments.md).
-
-Для прода/стейджа рекомендуется PostgreSQL:
-
-    docker compose up -d
-    # в backend/.env:
-    # DATABASE_CLIENT=postgres
-    # DATABASE_HOST=localhost
-    # DATABASE_PORT=5432
-    # DATABASE_NAME=unifiedstack
-    # DATABASE_USERNAME=strapi
-    # DATABASE_PASSWORD=strapi
-
-Драйвер `pg` уже в зависимостях бэкенда.
-
-### 3. Запуск фронтенда (Next.js — порт 3000)
-
-Откройте второй терминал и выполните:
-
-    cd frontend
-    npm install
-    npm run dev
-
-- Приложение откроется по адресу: `http://localhost:3000`
-- При необходимости укажите URL бэкенда в `frontend/.env.local`: `NEXT_PUBLIC_STRAPI_URL=[http://127.0.0.1:1337](http://127.0.0.1:1337)`
-
-## Сборка и тесты
-
-    cd backend && npm run build
-    cd ../frontend && npm run build
-
-    # денежная логика (Strapi запущен на :1337)
-    cd ../backend && node tests/money-e2e.js
-
-    # единый каталог и цена из БД при списании
-    node tests/catalog-e2e.js
-
-    # ограничения БД (SQLite по умолчанию; для PostgreSQL задайте DATABASE_CLIENT=postgres)
-    node tests/constraints-e2e.js
-
-    # безопасность тикетов поддержки (аноним, подмена Author, rate limit)
-    node tests/support-e2e.js
-
-    # cookie-авторизация и защита /library, /profile (Next.js запущен на :3000)
-    cd ../frontend && node tests/auth-cookie-e2e.js
-
-    # SEO-метаданные (openGraph) и описание на странице игры
-    node tests/game-page-seo-e2e.js
-
-Результаты `money-e2e.js` одинаковы на SQLite и PostgreSQL; для второго инстанса задайте `API_URL`. Полный список проверок — в [`docs/payments.md`](docs/payments.md#проверка).
+(cd backend && npm install)
+(cd frontend && npm install)

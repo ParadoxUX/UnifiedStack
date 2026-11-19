@@ -1,33 +1,38 @@
 'use client';
+
 import { useState } from 'react';
 
 export default function ProductDescription({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
 
+  const paragraphs = String(text || 'Описание отсутствует')
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
   return (
-    <div style={{ marginBottom: '25px' }}>
-      <div 
-        style={{ 
-          maxHeight: expanded ? 'none' : '120px', 
-          overflow: 'hidden', 
-          position: 'relative',
-          color: '#ccc',
-          fontSize: '15px',
-          lineHeight: 1.6,
-          transition: 'max-height 0.3s ease'
-        }}
-      >
-        {text}
-        {!expanded && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40px', background: 'linear-gradient(transparent, #222)' }}></div>
-        )}
+    <div className="pv-desc-box">
+      <div className={`pv-desc-content ${expanded ? 'is-expanded' : ''}`}>
+        {paragraphs.map((p, idx) => (
+          <p key={idx}>{p}</p>
+        ))}
+        {!expanded && <div className="pv-desc-fade" aria-hidden="true" />}
       </div>
-      <button 
-        onClick={() => setExpanded(!expanded)}
-        style={{ marginTop: '10px', background: 'transparent', border: '1px solid #8f3ed1', color: '#8f3ed1', padding: '6px 16px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-      >
-        {expanded ? 'Скрыть' : 'Показать полностью'}
-      </button>
+
+      <div className="pv-desc-footer">
+        <button
+          type="button"
+          className="pv-desc-toggle"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? 'Свернуть описание' : 'Показать полностью'}
+        </button>
+        <div className="pv-desc-pills">
+          <span>Лицензия PC</span>
+          <span>Облачные сохранения</span>
+          <span>Достижения</span>
+        </div>
+      </div>
     </div>
   );
 }

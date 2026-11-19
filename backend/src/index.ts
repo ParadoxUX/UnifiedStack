@@ -4,6 +4,7 @@ import path from 'path';
 import { runWalletMigration } from './migrations/wallet-constraints';
 import { seedCatalog } from './utils/seed-catalog';
 import { seedCommunity } from './utils/seed-community';
+import { ensureAdminDrafts } from './utils/ensure-drafts';
 
 type PermissionGroup = { api: string; singular: string; actions: string[] };
 
@@ -53,7 +54,7 @@ const DLC_CATALOG = [
     Description: 'Новый регион Туссент, подземелья, турниры и история местной герцогини.',
     Price: 399,
     oldPrice: 799,
-    img: 'witcher.svg',
+    img: 'covers/the-witcher-3.jpg',
   },
   {
     gameTitle: 'The Witcher 3',
@@ -61,7 +62,7 @@ const DLC_CATALOG = [
     Description: 'Сюжетная кампания с новыми заданиями и знакомым лицом из прошлого.',
     Price: 249,
     oldPrice: 499,
-    img: 'witcher.svg',
+    img: 'covers/the-witcher-3.jpg',
   },
   {
     gameTitle: 'Cyberpunk 2077',
@@ -69,14 +70,14 @@ const DLC_CATALOG = [
     Description: 'Шпионский сюжет в новом районе и новая ветка финала.',
     Price: 899,
     oldPrice: 1499,
-    img: 'cyberpunk.webp',
+    img: 'covers/cyberpunk-2077.jpg',
   },
   {
     gameTitle: 'Elden Ring',
     Title: 'Elden Ring: Shadow of the Erdtree',
     Description: 'Большое дополнение с новой картой, боссами и механиками.',
     Price: 1199,
-    img: 'S600xU_2x (1).webp',
+    img: 'covers/elden-ring.jpg',
   },
   {
     gameTitle: 'GTA V',
@@ -84,14 +85,14 @@ const DLC_CATALOG = [
     Description: 'Стартовый набор для GTA Online: бизнес, техника и игровая валюта.',
     Price: 499,
     oldPrice: 999,
-    img: 'gta5.webp',
+    img: 'covers/gta-v.jpg',
   },
   {
     gameTitle: 'It Takes Two',
     Title: 'It Takes Two: Versailles Trials',
     Description: 'Дополнительные испытания и новые сцены для вдвоём.',
     Price: 199,
-    img: 'ItTakesTwo.webp',
+    img: 'covers/it-takes-two.jpg',
   },
 ];
 
@@ -268,6 +269,7 @@ export default {
     await seedDlcs(strapi);
     await seedInitialTariffs(strapi);
     await seedCommunity(strapi);
+    await ensureAdminDrafts(strapi);
     await cleanupInvalidPermissions(strapi);
     await ensureRolePermissions(strapi, 'public', PUBLIC_PERMISSIONS, PUBLIC_UPLOAD_PERMISSIONS);
     await ensureRolePermissions(strapi, 'authenticated', PUBLIC_PERMISSIONS, PUBLIC_UPLOAD_PERMISSIONS);

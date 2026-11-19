@@ -69,8 +69,13 @@ async function proxy(req: NextRequest, ctx: Ctx) {
 
     if (res.status === 401) return errorResponse('Сессия истекла, войдите заново', 401);
 
-    const json = await res.json().catch(() => null);
-    if (json === null) return errorResponse('Некорректный ответ сервера', 502);
+    const text = await res.text();
+    let json: any = null;
+    try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+    if (json === null) {
+      const msg = text?.trim() || 'Некорректный ответ сервера';
+      return errorResponse(msg.slice(0, 240), res.status >= 400 ? res.status : 502);
+    }
 
     return NextResponse.json(json, { status: res.status });
   } catch (err) {

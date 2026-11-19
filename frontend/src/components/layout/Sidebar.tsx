@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -26,7 +26,7 @@ export default function Sidebar() {
         onClick={() => setMobileOpen(!mobileOpen)}
         aria-label="Меню"
       >
-        <Icon name={mobileOpen ? 'close' : 'menu'} size={22} />
+        <Icon name={mobileOpen ? 'close' : 'menu'} size={20} />
       </button>
 
       {mobileOpen && (
@@ -35,44 +35,39 @@ export default function Sidebar() {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(5, 7, 12, 0.75)',
+            background: 'rgba(5, 4, 12, 0.78)',
             backdropFilter: 'blur(4px)',
             zIndex: 998,
           }}
         />
       )}
 
-      <nav className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
-        <div className="sidebar-brand" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Icon name="logo" size={26} />
-          <span style={{ fontWeight: 700, letterSpacing: '0.06em', fontSize: '15px' }}>UNIFIED</span>
-        </div>
-
+      <nav className={`sidebar pv-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
         <ul>
-          <li className={`sidebar-btn ${isActive('/store') || isActive('/') ? 'active' : ''}`}>
+          <li className={`sidebar-btn ${isActive('/') || isActive('/store') ? 'active' : ''}`}>
             <Link href="/store">
-              <Icon name="store" size={19} className="icon" />
+              <Icon name="store" size={20} className="icon" />
               <span>{t('store')}</span>
             </Link>
           </li>
 
           <li className={`sidebar-btn ${isActive('/library') ? 'active' : ''}`}>
             <Link href="/library">
-              <Icon name="library" size={19} className="icon" />
+              <Icon name="library" size={20} className="icon" />
               <span>{t('library')}</span>
             </Link>
           </li>
 
           <li className={`sidebar-btn ${isActive('/sale') ? 'active' : ''}`}>
             <Link href="/sale">
-              <Icon name="sale" size={19} className="icon" />
+              <Icon name="sale" size={20} className="icon" />
               <span>{t('sale')}</span>
             </Link>
           </li>
 
           <li className={`sidebar-btn ${isActive('/cloud') ? 'active' : ''}`}>
             <Link href="/cloud">
-              <Icon name="cloud" size={19} className="icon" />
+              <Icon name="cloud" size={20} className="icon" />
               <span>{t('cloud')}</span>
             </Link>
           </li>
@@ -86,19 +81,8 @@ export default function Sidebar() {
                 setCommunityOpen(!communityOpen);
               }}
             >
-              <Icon name="community" size={19} className="icon" />
+              <Icon name="community" size={20} className="icon" />
               <span>{t('community')}</span>
-              <span
-                className="arrow"
-                style={{
-                  display: 'inline-flex',
-                  marginLeft: 'auto',
-                  transition: 'transform 0.2s ease',
-                  transform: communityOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                }}
-              >
-                <Icon name="chevron" size={15} />
-              </span>
             </a>
             <ul className={`dropdown-menu ${communityOpen ? 'active' : ''}`}>
               <li><Link href="/profile" className="dropdown-link">{t('profile')}</Link></li>

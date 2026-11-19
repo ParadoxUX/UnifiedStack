@@ -5,7 +5,34 @@
  * Требуется запущенный Strapi (:1337).
  */
 
+const { createHmac } = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+
 const API = process.env.API_URL || 'http://127.0.0.1:1337';
+function loadWebhookSecret() {
+  if (process.env.PAYMENT_WEBHOOK_SECRET) return process.env.PAYMENT_WEBHOOK_SECRET;
+  const envPath = path.resolve(__dirname, '../.env');
+  if (!fs.existsSync(envPath)) return '';
+  const m = fs.readFileSync(envPath, 'utf8').match(/^PAYMENT_WEBHOOK_SECRET=(.+)$/m);
+  return m ? m[1].trim() : '';
+}
+const PAYMENT_SECRET = loadWebhookSecret();
+
+async function fund(userId, amount, eventId) {
+  const body = JSON.stringify({ userId, amount });
+  const signature = 'sha256=' + createHmac('sha256', PAYMENT_SECRET).update(body).digest('hex');
+  const res = await fetch(`${API}/api/payments/webhook`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-payment-event-id': eventId,
+      'x-payment-signature': signature,
+    },
+    body,
+  });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
 const catalog = require('../src/data/catalog.json');
 
 let jwt = '';
@@ -46,10 +73,7 @@ async function register(balance) {
   jwt = res.body.jwt;
 
   if (balance) {
-    const dep = await api('/wallets/deposit', {
-      method: 'POST',
-      body: JSON.stringify({ amount: balance, reference: `cat_init_${ts}` }),
-    });
+    const dep = await fund(res.body.user.id, balance, `cat_init_${ts}`);
     assert(dep.status === 200 && dep.body.data.balance === balance, `баланс ${balance}`);
   }
   return res.body.user;

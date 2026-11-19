@@ -10,7 +10,7 @@ function applyStoredTheme() {
   if (typeof document === 'undefined') return;
   const theme = getItem('app_theme') || 'default';
   const body = document.body;
-  const themeClasses = ['theme-light', 'theme-blue', 'theme-maroon', 'theme-glass', 'theme-dark'];
+  const themeClasses = ['theme-light', 'theme-blue', 'theme-maroon', 'theme-glass', 'theme-dark', 'theme-crimson', 'theme-noir', 'theme-frost'];
   themeClasses.forEach(c => body.classList.remove(c));
   if (theme !== 'default') body.classList.add(`theme-${theme}`);
 }

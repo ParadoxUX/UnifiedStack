@@ -1,13 +1,9 @@
 /**
  * Единый идемпотентный сид каталога.
- *
- * Источник данных — src/data/catalog.json (slug + поля игры). Сид можно
- * запускать сколько угодно раз: запись ищется по slug, поэтому дубликатов
- * не появляется. Старые записи, созданные до появления slug, находятся по
- * Title и получают slug при первом запуске.
- *
- * ВАЖНО: runtime-источник каталога — база данных. Фронтенд читает игры
- * только из Strapi, никаких параллельных списков игр в коде нет.
+ * Источник данных — src/data/catalog.json.
+ * Автоматически подхватывает новые обложки из frontend/public/img/covers/*
+ * и (при SYNC_CATALOG_FORCE=true или при первой миграции на covers/*)
+ * синхронизирует актуальные цены Steam и баннеры.
  */
 
 import type { Core } from '@strapi/strapi';
@@ -30,8 +26,6 @@ interface CatalogEntry {
 }
 
 const CATALOG = catalogData as CatalogEntry[];
-
-/** Заглушки из старого dev-сида, которых не должно быть в каталоге. */
 const DUMMY_TITLES = ['Cyber Realm 2077', 'Neon Drift', 'Dungeon of Echoes', 'Stellar Vanguard'];
 
 const MIME_MAP: Record<string, string> = {
@@ -39,11 +33,10 @@ const MIME_MAP: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
 };
 
-async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string) {
-  const cleanName = path.parse(imgFileName).name;
+async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string, slugKey: string) {
+  const cleanName = `cover_${slugKey}`;
   const existing = await strapi.db.query('plugin::upload.file').findOne({
     where: { name: cleanName },
   });
@@ -54,12 +47,12 @@ async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string) {
 
   const stats = fs.statSync(fullPath);
   const ext = path.extname(imgFileName).toLowerCase();
-  const mimeType = MIME_MAP[ext] || 'image/webp';
+  const mimeType = MIME_MAP[ext] || 'image/jpeg';
 
   const uploaded = await strapi.plugin('upload').service('upload').upload({
     files: {
       filepath: fullPath,
-      originalFileName: imgFileName,
+      originalFileName: `${cleanName}${ext}`,
       size: stats.size,
       mimetype: mimeType,
     },
@@ -75,7 +68,6 @@ async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string) {
   return Array.isArray(uploaded) ? uploaded[0] : uploaded;
 }
 
-/** Поля, которыми управляет сид. stock/purchasable/purchaseCount не трогаем. */
 function catalogFields(item: CatalogEntry) {
   return {
     Title: item.title,
@@ -91,13 +83,9 @@ function catalogFields(item: CatalogEntry) {
   };
 }
 
-/**
- * Создаёт отсутствующие игры и дозаполняет служебные поля существующих
- * (slug, публикация, обложка). Цены и описания в БД не перезаписываются:
- * после первого сида источник истины — база данных.
- * Возвращает количество игр в каталоге.
- */
 export async function seedCatalog(strapi: Core.Strapi): Promise<number> {
+  const forceSync = process.env.SYNC_CATALOG_FORCE === 'true';
+
   for (const title of DUMMY_TITLES) {
     const dummy = await strapi.db.query('api::game.game').findOne({ where: { Title: title } });
     if (dummy) {
@@ -106,23 +94,39 @@ export async function seedCatalog(strapi: Core.Strapi): Promise<number> {
   }
 
   const seeded: Array<{ id: number; coverId: number | null }> = [];
+  let coversUpdated = 0;
 
   for (const item of CATALOG) {
-    const cover = await uploadLocalCover(strapi, item.cover);
+    const cover = await uploadLocalCover(strapi, item.cover, item.slug);
 
-    // Сначала ищем по slug (новый ключ), затем по Title (старые записи без slug).
     const existing =
-      (await strapi.db.query('api::game.game').findOne({ where: { slug: item.slug } })) ??
-      (await strapi.db.query('api::game.game').findOne({ where: { Title: item.title } }));
+      (await strapi.db.query('api::game.game').findOne({
+        where: { slug: item.slug },
+        populate: { Cover: true },
+      })) ??
+      (await strapi.db.query('api::game.game').findOne({
+        where: { Title: item.title },
+        populate: { Cover: true },
+      }));
 
     if (existing) {
-      // База — источник истины: существующие цены/описания не перезаписываем.
-      // Дозаполняем только служебные поля (slug для старых записей, публикацию,
-      // обложку), чтобы сид оставался идемпотентным и не ломал ручные правки.
+      const currentCoverName = existing.Cover?.name || '';
+      const expectedCoverName = `cover_${item.slug}`;
+      const needsCoverUpgrade = Boolean(cover?.id && currentCoverName !== expectedCoverName);
+
       const data: Record<string, unknown> = {};
       if (existing.slug !== item.slug) data.slug = item.slug;
       if (!existing.publishedAt) data.publishedAt = new Date();
-      if (cover?.id && !existing.Cover) data.Cover = cover.id;
+      if (needsCoverUpgrade && cover?.id) {
+        data.Cover = cover.id;
+        coversUpdated++;
+      }
+      // При переходе на новые Steam-обложки или при SYNC_CATALOG_FORCE обновляем цены Steam
+      if (needsCoverUpgrade || forceSync) {
+        data.Price = item.price;
+        data.oldPrice = item.oldPrice ?? null;
+        data.isSale = Boolean(item.isSale);
+      }
 
       if (Object.keys(data).length > 0) {
         await strapi.db.query('api::game.game').update({
@@ -146,9 +150,12 @@ export async function seedCatalog(strapi: Core.Strapi): Promise<number> {
     }
   }
 
-  // Баннеры для слайдеров создаём только на пустой БД.
+  // Пересоздаём баннеры, если их нет или обновились обложки
   const bannerCount = await strapi.db.query('api::banner.banner').count();
-  if (bannerCount === 0 && seeded.length >= 10) {
+  if ((bannerCount === 0 || coversUpdated > 0 || forceSync) && seeded.length >= 10) {
+    if (bannerCount > 0) {
+      await strapi.db.query('api::banner.banner').deleteMany({ where: { id: { $gt: 0 } } });
+    }
     const gamesWithCovers = seeded.filter((g) => g.coverId !== null);
     for (let i = 0; i < Math.min(12, gamesWithCovers.length); i++) {
       const target = gamesWithCovers[i];
@@ -164,7 +171,7 @@ export async function seedCatalog(strapi: Core.Strapi): Promise<number> {
     }
   }
 
-  console.log(`[catalog] Синхронизировано игр по slug: ${CATALOG.length}`);
+  console.log(`[catalog] Синхронизировано игр по slug: ${CATALOG.length} (обновлено обложек: ${coversUpdated})`);
   return CATALOG.length;
 }
 

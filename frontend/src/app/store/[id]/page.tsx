@@ -183,7 +183,16 @@ export default async function ProductPage({
           <span className="us-crumb-current">{product.title}</span>
         </div>
 
-        <h1 className="us-steam-title">{product.title}</h1>
+        <div className="pv-game-cine-head">
+          <div className="pv-game-watermark" aria-hidden="true">{product.title}</div>
+          <h1 className="us-steam-title">{product.title}</h1>
+          <div className="pv-game-metrics-strip">
+            <div><span>Студия</span><strong>{product.developer}</strong></div>
+            <div><span>Релиз</span><strong>{product.releaseDate} г.</strong></div>
+            <div><span>Жанр</span><strong>{genreTags[0] || "Экшен"}</strong></div>
+            <div><span>Платформа</span><strong>{product.platform}</strong></div>
+          </div>
+        </div>
 
         {/* Основная двухколоночная сетка в стиле Steam */}
         <div className="us-steam-layout">
