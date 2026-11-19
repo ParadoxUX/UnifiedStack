@@ -607,6 +607,52 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCloudSessionCloudSession
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'cloud_sessions';
+  info: {
+    displayName: 'CloudSession';
+    pluralName: 'cloud-sessions';
+    singularName: 'cloud-session';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    endsAt: Schema.Attribute.DateTime;
+    game: Schema.Attribute.Relation<'manyToOne', 'api::game.game'>;
+    kind: Schema.Attribute.Enumeration<['timed', 'account']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'timed'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::cloud-session.cloud-session'
+    > &
+      Schema.Attribute.Private;
+    minutesLeft: Schema.Attribute.Integer;
+    minutesTotal: Schema.Attribute.Integer;
+    publishedAt: Schema.Attribute.DateTime;
+    reference: Schema.Attribute.String & Schema.Attribute.Unique;
+    server: Schema.Attribute.String;
+    startedAt: Schema.Attribute.DateTime;
+    status: Schema.Attribute.Enumeration<['active', 'stopped', 'expired']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'active'>;
+    tariff: Schema.Attribute.Relation<'manyToOne', 'api::tariff.tariff'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
 export interface ApiContactContact extends Struct.CollectionTypeSchema {
   collectionName: 'contacts';
   info: {
@@ -665,6 +711,49 @@ export interface ApiCybersportNewsItemCybersportNewsItem
     tags: Schema.Attribute.String;
     time: Schema.Attribute.String;
     title: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDlcDlc extends Struct.CollectionTypeSchema {
+  collectionName: 'dlcs';
+  info: {
+    displayName: 'DLC';
+    pluralName: 'dlcs';
+    singularName: 'dlc';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    Cover: Schema.Attribute.Media<'images' | 'files'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    Description: Schema.Attribute.Text;
+    game: Schema.Attribute.Relation<'manyToOne', 'api::game.game'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::dlc.dlc'> &
+      Schema.Attribute.Private;
+    oldPrice: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    Price: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    publishedAt: Schema.Attribute.DateTime;
+    Title: Schema.Attribute.Text & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -969,6 +1058,7 @@ export interface ApiLibraryItemLibraryItem extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    dlc: Schema.Attribute.Relation<'manyToOne', 'api::dlc.dlc'>;
     game: Schema.Attribute.Relation<'manyToOne', 'api::game.game'>;
     gameId: Schema.Attribute.Integer;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -1798,8 +1888,10 @@ declare module '@strapi/strapi' {
       'api::author.author': ApiAuthorAuthor;
       'api::banner.banner': ApiBannerBanner;
       'api::category.category': ApiCategoryCategory;
+      'api::cloud-session.cloud-session': ApiCloudSessionCloudSession;
       'api::contact.contact': ApiContactContact;
       'api::cybersport-news-item.cybersport-news-item': ApiCybersportNewsItemCybersportNewsItem;
+      'api::dlc.dlc': ApiDlcDlc;
       'api::event.event': ApiEventEvent;
       'api::faq.faq': ApiFaqFaq;
       'api::forum-category.forum-category': ApiForumCategoryForumCategory;
