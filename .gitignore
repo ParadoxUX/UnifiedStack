@@ -29,4 +29,5 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
-Thumbs.db
+Thumbs.dbfrontend/AGENTS.md
+backend/types/generated/
