@@ -2726,3 +2726,74 @@
 .us-lightbox-dot.active {
   background: #a78bfa;
 }
+
+/* Плеер на сцене, пока открыт лайтбокс: второго видео нет */
+.us-media-paused {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #05080f;
+  color: #cbd5e1;
+}
+
+.us-media-paused img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.28;
+}
+
+.us-media-paused span {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(5, 8, 15, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+}
+
+/* Видео с неизвестным источником — не <img>, а ссылка */
+.us-media-unknown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  aspect-ratio: 16 / 9;
+  padding: 20px;
+  text-align: center;
+  background: #05080f;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.us-media-unknown a {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: #8b5cf6;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.us-media-unknown a:hover {
+  background: #a78bfa;
+}
+
+.us-media-thumb-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.55);
+  background: #0b111c;
+}

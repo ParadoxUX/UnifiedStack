@@ -13,8 +13,6 @@ export interface MediaSlide {
   caption?: string;
 }
 
-type SlideType = 'video' | 'image';
-
 /** id ролика YouTube (watch / youtu.be / embed / shorts) либо null */
 export function getYouTubeId(url: string): string | null {
   if (!url) return null;
@@ -28,14 +26,29 @@ export function isDirectVideo(url: string) {
   return /\.(mp4|webm|ogv|ogg|mov)(\?.*)?$/i.test(url);
 }
 
-function resolveThumb(slide: MediaSlide) {
-  if (slide.thumb) return slide.thumb;
-  const yt = slide.type === 'video' ? getYouTubeId(slide.src) : null;
-  return yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : slide.src;
+function resolveThumb(slide: MediaSlide): string | null {
+  if (slide.thumb && !isDirectVideo(slide.thumb)) return slide.thumb;
+  if (slide.type === 'video') {
+    const yt = getYouTubeId(slide.src);
+    // Видео без постера НЕ подставляем в <img>: это даёт битые миниатюры.
+    return yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : null;
+  }
+  return slide.src;
 }
 
-function kindOf(slide: MediaSlide): SlideType {
-  return slide.type;
+function isPlayableVideo(slide: MediaSlide): boolean {
+  return slide.type === 'video' && (Boolean(getYouTubeId(slide.src)) || isDirectVideo(slide.src));
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  return (
+    el.tagName === 'INPUT' ||
+    el.tagName === 'TEXTAREA' ||
+    el.tagName === 'SELECT' ||
+    Boolean(el.isContentEditable)
+  );
 }
 
 export default function GameMediaGallery({
@@ -59,17 +72,12 @@ export default function GameMediaGallery({
   // Сохраняем позицию воспроизведения, чтобы смена трейлера/скриншота не сбрасывала видео
   const playback = useRef<Record<number, number>>({});
   const videoRef = useRef<HTMLVideoElement>(null);
-  const ytFrameRef = useRef<HTMLIFrameElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const [lightbox, setLightbox] = useState(false);
-  const [coins, setCoins] = useState<Record<number, number>>({});
 
   const current = items[Math.min(active, items.length - 1)];
   const ytId = current.type === 'video' ? getYouTubeId(current.src) : null;
-
-  const getCoins = (slide: MediaSlide) => {
-    if (slide.type === 'video') return coins[0] ?? 2;
-    return coins[1] ?? 3;
-  };
+  const playableVideo = isPlayableVideo(current);
 
   const go = useCallback(
     (dir: 1 | -1) => {
@@ -78,20 +86,16 @@ export default function GameMediaGallery({
     [items.length]
   );
 
-  const changeCoins = (kind: SlideType, delta: number) => {
-    const index = kind === 'video' ? 0 : 1;
-    setCoins((prev) => ({
-      ...prev,
-      [index]: Math.max(1, Math.min(5, (prev[index] ?? (kind === 'video' ? 2 : 3)) + delta)),
-    }));
-  };
-
-  // Горячие клавиши как в Steam: ← → листают медиа, Esc закрывает лайтбокс
+  // Горячие клавиши как в Steam: ← → листают медиа, Esc закрывает лайтбокс.
+  // Стрелки работают только когда фокус внутри галереи и не в поле ввода.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (lightbox) return;
-      if (e.key === 'ArrowRight') go(1);
-      if (e.key === 'ArrowLeft') go(-1);
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      if (isTypingTarget(e.target)) return;
+      if (!stageRef.current?.contains(document.activeElement)) return;
+      e.preventDefault();
+      go(e.key === 'ArrowRight' ? 1 : -1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -100,9 +104,15 @@ export default function GameMediaGallery({
   useEffect(() => {
     if (!lightbox) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightbox(false);
-      if (e.key === 'ArrowRight') go(1);
-      if (e.key === 'ArrowLeft') go(-1);
+      if (isTypingTarget(e.target)) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setLightbox(false);
+      }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        go(e.key === 'ArrowRight' ? 1 : -1);
+      }
     };
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKey);
@@ -129,11 +139,29 @@ export default function GameMediaGallery({
 
   return (
     <>
-      <div className="us-steam-showcase">
+      <div className="us-steam-showcase" ref={stageRef}>
         <div className="us-media-stage">
-          {current.type === 'video' && ytId ? (
+          {current.type === 'video' && !playableVideo ? (
+            // Неизвестный источник НЕ отдаём в <img> — это битая картинка.
+            <div className="us-media-unknown">
+              <Icon name="play" size={28} />
+              <span>Ролик доступен по внешней ссылке</span>
+              <a href={current.src} target="_blank" rel="noopener noreferrer">
+                Открыть ролик ↗
+              </a>
+            </div>
+          ) : lightbox && current.type === 'video' ? (
+            // Пока открыт лайтбокс, сцена НЕ держит второй плеер.
+            <div className="us-media-paused" aria-hidden="true">
+              {current.thumb && !isDirectVideo(current.thumb) ? (
+                <img src={current.thumb} alt="" />
+              ) : null}
+              <span>
+                <Icon name="play" size={18} /> Просмотр в полном экране
+              </span>
+            </div>
+          ) : current.type === 'video' && ytId ? (
             <iframe
-              ref={ytFrameRef}
               key={`${ytId}-${active}`}
               className="us-media-video"
               src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0`}
@@ -147,7 +175,7 @@ export default function GameMediaGallery({
               key={`${current.src}-${active}`}
               className="us-media-video"
               src={current.src}
-              poster={current.thumb}
+              poster={current.thumb && !isDirectVideo(current.thumb) ? current.thumb : undefined}
               controls
               playsInline
               preload="metadata"
@@ -200,7 +228,8 @@ export default function GameMediaGallery({
         {/* Сетка миниатюр справа, как под галереей Steam */}
         <div className="us-media-thumbs" role="tablist" aria-label="Медиа игры">
           {items.map((slide, index) => {
-            const kind = kindOf(slide);
+            const kind = slide.type;
+            const thumb = resolveThumb(slide);
             return (
               <button
                 key={`${slide.type}-${slide.src}-${index}`}
@@ -211,7 +240,13 @@ export default function GameMediaGallery({
                 onClick={() => setActive(index)}
                 title={slide.caption || (slide.type === 'video' ? 'Трейлер' : `Скриншот ${index + 1}`)}
               >
-                <img src={resolveThumb(slide)} alt="" loading="lazy" />
+                {thumb ? (
+                  <img src={thumb} alt="" loading="lazy" />
+                ) : (
+                  <span className="us-media-thumb-empty">
+                    <Icon name={kind === 'video' ? 'play' : 'image'} size={16} />
+                  </span>
+                )}
                 {slide.type === 'video' && (
                   <span className="us-media-thumb-play">
                     <Icon name="play" size={14} />
@@ -244,7 +279,15 @@ export default function GameMediaGallery({
           </button>
 
           <div className="us-lightbox-body">
-            {current.type === 'video' ? (
+            {current.type === 'video' && !playableVideo ? (
+              <div className="us-media-unknown">
+                <Icon name="play" size={32} />
+                <span>Ролик доступен по внешней ссылке</span>
+                <a href={current.src} target="_blank" rel="noopener noreferrer">
+                  Открыть ролик ↗
+                </a>
+              </div>
+            ) : current.type === 'video' ? (
               <div className="us-lightbox-video" key={`light-${ytId ?? current.src}`}>
                 {ytId ? (
                   <iframe
@@ -258,7 +301,7 @@ export default function GameMediaGallery({
                   <video
                     className="us-media-video"
                     src={current.src}
-                    poster={current.thumb}
+                    poster={current.thumb && !isDirectVideo(current.thumb) ? current.thumb : undefined}
                     controls
                     autoPlay
                     playsInline
