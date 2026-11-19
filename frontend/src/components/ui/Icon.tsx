@@ -27,7 +27,10 @@ export type IconName =
   | "clock"
   | "eye"
   | "plus"
-  | "heart";
+  | "heart"
+  | "wallet"
+  | "help"
+  | "headset";
 
 const ICONS: Record<IconName, React.ReactNode> = {
   logo: (
@@ -187,6 +190,28 @@ const ICONS: Record<IconName, React.ReactNode> = {
   ),
   heart: (
     <path d="M12 20.5S3.5 15 3.5 8.8A4.8 4.8 0 0 1 12 5.9a4.8 4.8 0 0 1 8.5 2.9c0 6.2-8.5 11.7-8.5 11.7Z" />
+  ),
+  wallet: (
+    <>
+      <rect x="3" y="6" width="18" height="13" rx="3" />
+      <path d="M3 10h18" />
+      <circle cx="17" cy="14.5" r="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2-2.4 3.6" />
+      <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  headset: (
+    <>
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+      <rect x="2.5" y="13.5" width="4" height="6" rx="2" />
+      <rect x="17.5" y="13.5" width="4" height="6" rx="2" />
+      <path d="M20 19.5v.5a2.5 2.5 0 0 1-2.5 2.5H13" />
+    </>
   ),
 };
 
