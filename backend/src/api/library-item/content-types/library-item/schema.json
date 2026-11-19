@@ -22,6 +22,11 @@
       "relation": "manyToOne",
       "target": "api::game.game"
     },
+    "dlc": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::dlc.dlc"
+    },
     "status": {
       "type": "enumeration",
       "enum": ["owned", "installed", "refunded"],

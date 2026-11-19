@@ -81,6 +81,23 @@ export default {
     }
   },
 
+  async purchaseDlc(ctx: any) {
+    const user = requireUser(ctx);
+    const { dlcId, reference } = ctx.request.body ?? {};
+    if (!dlcId) ctx.throw(400, 'dlcId обязателен');
+
+    try {
+      const result = await walletService.purchaseDlc(strapi, {
+        userId: user.id,
+        dlcId: String(dlcId),
+        reference: reference || `dlc_${user.id}_${dlcId}_${Date.now()}`,
+      });
+      ctx.body = { data: result };
+    } catch (err: any) {
+      ctx.throw(400, err?.message || 'Ошибка покупки дополнения');
+    }
+  },
+
   async library(ctx: any) {
     const user = requireUser(ctx);
     const items = await walletService.getLibrary(strapi, user.id, true);

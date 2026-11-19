@@ -6,6 +6,7 @@ import { seedCommunity } from './utils/seed-community';
 
 const PUBLIC_PERMISSIONS: Array<{ api: string; singular: string; actions: string[] }> = [
   { api: 'games', singular: 'game', actions: ['find', 'findOne'] },
+  { api: 'dlcs', singular: 'dlc', actions: ['find', 'findOne'] },
   { api: 'banners', singular: 'banner', actions: ['find', 'findOne'] },
   { api: 'categories', singular: 'category', actions: ['find', 'findOne'] },
   { api: 'events', singular: 'event', actions: ['find', 'findOne'] },
@@ -170,6 +171,82 @@ async function syncFullCatalog(strapi: Core.Strapi) {
   console.log(`[catalog] Синхронизировано игр с обложками: ${CATALOG_GAMES.length}`);
 }
 
+/** Дополнения к играм — отдельный товар с отдельной покупкой. */
+const DLC_CATALOG = [
+  {
+    gameTitle: 'The Witcher 3',
+    Title: 'The Witcher 3: Blood and Wine',
+    Description: 'Новый регион Танедд, подземелья, турниры и история местной герцогини.',
+    Price: 399,
+    oldPrice: 799,
+    img: 'i (2).webp',
+  },
+  {
+    gameTitle: 'The Witcher 3',
+    Title: 'The Witcher 3: Hearts of Stone',
+    Description: 'Сюжетная кампания с новыми заданиями и знакомым лицом из прошлого.',
+    Price: 249,
+    oldPrice: 499,
+    img: 'i (3).webp',
+  },
+  {
+    gameTitle: 'Cyberpunk 2077',
+    Title: 'Cyberpunk 2077: Phantom Liberty',
+    Description: 'Шпионский сюжет в новом районе и новая ветка финала.',
+    Price: 899,
+    oldPrice: 1499,
+    img: 'cyberpunk.webp',
+  },
+  {
+    gameTitle: 'Elden Ring',
+    Title: 'Elden Ring: Shadow of the Erdtree',
+    Description: 'Большое дополнение с новой картой, боссами и механиками.',
+    Price: 1199,
+    img: 'S600xU_2x (1).webp',
+  },
+  {
+    gameTitle: 'GTA V',
+    Title: 'GTA V: Criminal Enterprise Starter Pack',
+    Description: 'Стартовый набор для GTA Online: бизнес, техника и игровая валюта.',
+    Price: 499,
+    oldPrice: 999,
+    img: 'gta5.webp',
+  },
+  {
+    gameTitle: 'It Takes Two',
+    Title: 'It Takes Two: Versailles Trials',
+    Description: 'Дополнительные испытания и новые сцены для вдвоём.',
+    Price: 199,
+    img: 'ItTakesTwo.webp',
+  },
+];
+
+async function seedDlcs(strapi: Core.Strapi) {
+  for (const item of DLC_CATALOG) {
+    const game = await strapi.db.query('api::game.game').findOne({ where: { Title: item.gameTitle } });
+    const cover = await uploadLocalCover(strapi, item.img);
+    const existing = await strapi.db.query('api::dlc.dlc').findOne({ where: { Title: item.Title } });
+
+    const data = {
+      Title: item.Title,
+      Description: item.Description,
+      Price: item.Price,
+      oldPrice: item.oldPrice ?? null,
+      game: game?.id ?? null,
+      Cover: cover?.id ?? null,
+      publishedAt: new Date(),
+    };
+
+    if (existing) {
+      // Обложку и цены обновляем при каждом старте — сид идемпотентен.
+      await strapi.db.query('api::dlc.dlc').update({ where: { id: existing.id }, data });
+    } else {
+      await strapi.db.query('api::dlc.dlc').create({ data });
+    }
+  }
+  console.log(`[dlc] Синхронизировано дополнений: ${DLC_CATALOG.length}`);
+}
+
 async function seedInitialTariffs(strapi: Core.Strapi) {
   const count = await strapi.db.query('api::tariff.tariff').count();
   if (count > 0) return;
@@ -251,6 +328,7 @@ export default {
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
     await runWalletMigration(strapi);
     await syncFullCatalog(strapi);
+    await seedDlcs(strapi);
     await seedInitialTariffs(strapi);
     await seedCommunity(strapi);
     await cleanupInvalidPermissions(strapi);

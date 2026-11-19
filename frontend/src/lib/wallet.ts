@@ -34,6 +34,7 @@ export interface LibraryItem {
   status: "owned" | "installed" | "refunded";
   pricePaid: number;
   purchasedAt: string;
+  dlc?: { id: number; documentId?: string; Title?: string; Price?: number };
   game?: {
     id: number;
     documentId?: string;
@@ -121,6 +122,34 @@ export async function fetchLibrary(): Promise<LibraryItem[]> {
 export async function fetchTransactions(): Promise<WalletTransaction[]> {
   const wallet = await fetchWallet();
   return wallet.transactions ?? [];
+}
+
+/** Покупка DLC — отдельная транзакция и отдельная запись в библиотеке. */
+export async function purchaseDlc(dlcId: string | number, reference?: string): Promise<Wallet> {
+  const token = getToken();
+  if (!token) throw new WalletError("Требуется авторизация", 401);
+
+  const res = await fetch("/api/wallet/wallets/purchase-dlc", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      dlcId,
+      reference: reference ?? `dlc_${Date.now()}_${dlcId}`,
+    }),
+    cache: "no-store",
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new WalletError(
+      json?.error?.message || json?.message || "Не удалось купить дополнение",
+      res.status
+    );
+  }
+  return json.data as Wallet;
 }
 
 /** Детерминированный ключ идемпотентности покупки. */

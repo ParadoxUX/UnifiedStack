@@ -1,5 +1,5 @@
 ﻿import { Metadata } from "next";
-import { fetchFromStrapi } from "@/lib/strapi";
+import { fetchDlcs, fetchFromStrapi } from "@/lib/strapi";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ProductDescription from "@/components/store/ProductDescription";
@@ -7,6 +7,7 @@ import BuyButton from "@/components/store/BuyButton";
 import ProductReviews from "@/components/store/ProductReviews";
 import Icon from "@/components/ui/Icon";
 import GameMediaGallery, { MediaSlide } from "@/components/store/GameMediaGallery";
+import DlcBuyButton from "@/components/store/DlcBuyButton";
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
 
@@ -136,6 +137,12 @@ export default async function ProductPage({
   const product = normalize(raw);
   if (!product) notFound();
 
+  const allDlcs = await fetchDlcs();
+  const dlcs = allDlcs.filter(
+    (d: any) =>
+      String(d.game?.documentId ?? d.game?.id) === String(product.id)
+  );
+
   const discount =
     product.isSale && product.oldPrice && product.oldPrice > product.priceNum
       ? Math.round(((product.oldPrice - product.priceNum) / product.oldPrice) * 100)
@@ -214,6 +221,51 @@ export default async function ProductPage({
                 />
               </div>
             </div>
+
+            {/* Дополнения (DLC) — отдельные товары с отдельной покупкой */}
+            {dlcs.length > 0 && (
+              <section className="ur-dlc-section">
+                <div className="ur-dlc-head">
+                  <div>
+                    <p className="ur-kicker">Дополнения</p>
+                    <h2>Расширьте свою игру</h2>
+                    <p className="ur-subtitle">Покупается отдельно, добавляется в библиотеку сразу</p>
+                  </div>
+                  <span className="ur-dlc-count">{dlcs.length} DLC</span>
+                </div>
+                <div className="ur-dlc-grid">
+                  {dlcs.map((d: any) => {
+                    const dlcId = String(d.documentId ?? d.id);
+                    const cover = d.Cover?.url
+                      ? `${STRAPI_URL}${d.Cover.url}`
+                      : product.image;
+                    const price = Number(d.Price ?? 0);
+                    const old = Number(d.oldPrice ?? 0);
+                    const dlcDiscount = old > price ? Math.round((1 - price / old) * 100) : 0;
+                    return (
+                      <article className="ur-dlc-card" key={dlcId}>
+                        <div className="ur-dlc-cover">
+                          <img src={cover} alt={d.Title} loading="lazy" />
+                          <span className="ur-dlc-badge">DLC</span>
+                          {dlcDiscount > 0 && (
+                            <span className="ur-dlc-discount">−{dlcDiscount}%</span>
+                          )}
+                        </div>
+                        <div className="ur-dlc-body">
+                          <h3>{d.Title}</h3>
+                          <p>{d.Description}</p>
+                          <div className="ur-dlc-price-row">
+                            {dlcDiscount > 0 && <span className="ur-dlc-old">{old} ₽</span>}
+                            <span className="ur-dlc-price">{price} ₽</span>
+                          </div>
+                          <DlcBuyButton dlcId={dlcId} title={d.Title} price={price} />
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {/* Об игре */}
             <section className="us-steam-section">

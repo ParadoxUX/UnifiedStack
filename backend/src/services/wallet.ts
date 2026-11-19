@@ -410,8 +410,73 @@ async function getLibrary(strapi: Core.Strapi, userId: number | string, includeG
   const wallet = await ensureWallet(strapi, userId);
   return strapi.db.query('api::library-item.library-item').findMany({
     where: { wallet: { id: wallet.id } },
-    populate: includeGame ? { game: true } : {},
+    populate: includeGame ? { game: true, dlc: true } : {},
     orderBy: { purchasedAt: 'desc' },
+  });
+}
+
+/**
+ * Покупка DLC — отдельный товар со своей ценой и отдельной записью
+ * в библиотеке. Базовая игра не обязательна, но если DLC привязан к игре,
+ * владение проверяется только по самому DLC.
+ */
+async function purchaseDlc(
+  strapi: Core.Strapi,
+  args: { userId: number | string; dlcId: string; reference: string }
+) {
+  const wallet = await ensureWallet(strapi, args.userId);
+
+  const dlc = await strapi.db.query('api::dlc.dlc').findOne({
+    where: { $or: [{ documentId: args.dlcId }, { id: Number(args.dlcId) || -1 }] },
+    populate: { game: true },
+  });
+  if (!dlc) throw new ApplicationError('Дополнение не найдено');
+
+  const price = Number(dlc.Price ?? 0);
+  if (!Number.isInteger(price) || price < 0) {
+    throw new ApplicationError('Некорректная цена дополнения');
+  }
+
+  const existingTx = await strapi.db.query('api::transaction.transaction').findOne({
+    where: { reference: args.reference },
+  });
+  if (existingTx) {
+    return { balance: wallet.balance, transaction: existingTx, dlc, idempotent: true };
+  }
+
+  const owned = await strapi.db.query('api::library-item.library-item').findOne({
+    where: {
+      wallet: { id: wallet.id },
+      dlc: { id: dlc.id },
+      status: { $ne: 'refunded' },
+    },
+  });
+  if (owned) throw new ApplicationError('Дополнение уже приобретено');
+
+  return move(strapi, {
+    userId: args.userId,
+    type: 'purchase',
+    amount: price,
+    reference: args.reference,
+    gameId: dlc.game?.id ?? null,
+    metadata: {
+      kind: 'dlc',
+      title: dlc.Title,
+      dlcId: dlc.documentId ?? dlc.id,
+    },
+    extra: async (_trx, walletId) => {
+      const item = await strapi.db.query('api::library-item.library-item').create({
+        data: {
+          wallet: walletId,
+          game: dlc.game?.id ?? null,
+          dlc: dlc.id,
+          status: 'owned',
+          pricePaid: price,
+          purchasedAt: new Date(),
+        },
+      });
+      return { libraryItem: item, dlc };
+    },
   });
 }
 
@@ -421,6 +486,7 @@ export const walletService = {
   deposit,
   withdraw,
   purchaseGame,
+  purchaseDlc,
   reverseTransaction,
   getLibrary,
   recordTransaction,

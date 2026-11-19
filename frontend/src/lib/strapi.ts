@@ -58,6 +58,15 @@ export async function fetchGames() {
   return Array.isArray(json?.data) ? json.data : [];
 }
 
+export async function fetchDlcs() {
+  try {
+    const result = await fetchFromStrapi("dlcs?populate=*&pagination[pageSize]=100");
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchGameById(id: string) {
   return await fetchFromStrapi(`games/${id}`);
 }

@@ -1,0 +1,41 @@
+{
+  "kind": "collectionType",
+  "collectionName": "dlcs",
+  "info": {
+    "singularName": "dlc",
+    "pluralName": "dlcs",
+    "displayName": "DLC"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "Title": {
+      "type": "text",
+      "required": true
+    },
+    "Description": {
+      "type": "text"
+    },
+    "Price": {
+      "type": "integer",
+      "required": true,
+      "min": 0
+    },
+    "oldPrice": {
+      "type": "integer",
+      "min": 0
+    },
+    "game": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::game.game"
+    },
+    "Cover": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images", "files"]
+    }
+  }
+}
