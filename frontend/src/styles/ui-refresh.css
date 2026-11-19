@@ -630,8 +630,16 @@
   border-color: rgba(139,92,246,.55);
   box-shadow: 0 16px 40px rgba(0,0,0,.4);
 }
-.ur-dlc-cover { position: relative; aspect-ratio: 16/9; background: #0b0d14; }
+.ur-dlc-cover { position: relative; aspect-ratio: 16/9; background: #0b0d14; overflow: hidden; }
 .ur-dlc-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s ease; }
+/* Обложка DLC — та же игра, как в Steam, но с фирменным градиентом. */
+.ur-dlc-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, rgba(139,92,246,.28), rgba(8,10,18,.1) 45%, rgba(8,10,18,.72));
+  pointer-events: none;
+}
 .ur-dlc-card:hover .ur-dlc-cover img { transform: scale(1.05); }
 .ur-dlc-badge {
   position: absolute;
@@ -679,6 +687,76 @@
 }
 .ur-dlc-buy:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
 .ur-dlc-buy:disabled { opacity: .65; cursor: default; }
+
+/* ---------------- КОМПЬЮТЕРНЫЙ КЛУБ ---------------- */
+.ur-club-setup {
+  display: grid;
+  grid-template-columns: 1.3fr .7fr;
+  gap: 18px;
+}
+.ur-club-options, .ur-session-card {
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(139,92,246,.25);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(139,92,246,.18), transparent 40%),
+    var(--ur-panel);
+}
+.ur-club-info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
+.ur-club-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  margin: 18px 0 6px;
+  border-top: 1px solid var(--ur-line);
+}
+.ur-club-price span { color: var(--ur-muted); font-size: 13px; }
+.ur-club-price strong { font-size: 26px; color: #8ce8ad; }
+
+.ur-session-card { margin-bottom: 12px; }
+.ur-session-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ur-session-status {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(55,214,122,.15);
+  border: 1px solid rgba(55,214,122,.35);
+  color: #7ee2a8;
+  font-size: 12px;
+}
+.ur-session-clock {
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(46px, 8vw, 86px);
+  font-weight: 800;
+  letter-spacing: .04em;
+  margin: 18px 0 10px;
+  background: linear-gradient(135deg, #fff, #b98cff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ur-session-clock--forever { font-size: 74px; }
+.ur-session-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.08);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.ur-session-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #8b5cf6, #37d67a);
+  transition: width 1s linear;
+}
+.ur-session-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+
+@media (max-width: 900px) {
+  .ur-club-setup { grid-template-columns: 1fr; }
+  .ur-club-info { grid-template-columns: 1fr 1fr; }
+}
 
 @media (max-width: 900px) {
   .ur-friends-layout, .ur-forum-layout { grid-template-columns: 1fr; }

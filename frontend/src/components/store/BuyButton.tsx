@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { addUserPoints, checkAchievements } from "@/lib/achievements";
 import { grantCardsForGame } from "@/lib/steamCards";
@@ -111,9 +112,13 @@ export default function BuyButton({ gameId, title, price, image }: BuyButtonProp
 
   if (purchased) {
     return (
-      <button className="product-buy-btn sellgame1" disabled style={{ background: "rgba(34, 197, 94, 0.2)", borderColor: "#22c55e", color: "#86efac" }}>
-        В библиотеке ✓
-      </button>
+      <Link
+        className="product-buy-btn sellgame1"
+        href="/library"
+        style={{ background: "rgba(34, 197, 94, 0.2)", borderColor: "#22c55e", color: "#86efac", textDecoration: "none" }}
+      >
+        В библиотеке ✓ · Открыть
+      </Link>
     );
   }
 

@@ -63,6 +63,18 @@ const CATALOG_GAMES = [
   { slug: 'sekiro', Title: 'Sekiro: Shadows Die Twice', Price: 2999, oldPrice: 3999, isSale: true, developer: 'FromSoftware', game_year: 2019, Genre: 'Action-Adventure, Souls-like', img: 'sekiro1.png', Description: 'Самурайский экшен от FromSoftware в Японии эпохи Сэнгоку с уникальной боевой системой парирований и протезом шиноби.' },
   { slug: 'silent-hill-f', Title: 'Silent Hill f', Price: 2599, developer: 'Neobards Entertainment', game_year: 2025, Genre: 'Psychological Horror', img: 'SH F.webp', Description: 'Новая глава серии Silent Hill, переносящая психологический ужас в Японию 1960-х годов.' },
   { slug: 'reanimal', Title: 'REANIMAL', Price: 1999, developer: 'Bloober Team', game_year: 2025, Genre: 'Survival Horror', img: 'Reanimal.jpg', Description: 'Мрачный кооперативный хоррор от создателей Little Nightmares и ремейка Silent Hill 2.' },
+  // Бесплатные игры — можно создавать аккаунт и играть без пополнения баланса.
+  { slug: 'counter-strike-2', Title: 'Counter-Strike 2', Price: 0, developer: 'Valve', game_year: 2023, Genre: 'Shooter, Free-to-play', img: 'CS2.webp', Description: 'Обновлённая культовая шутерная серия с точной стрельбой и соревновательными матчами.' },
+  { slug: 'dota-2', Title: 'Dota 2', Price: 0, developer: 'Valve', game_year: 2013, Genre: 'MOBA, Free-to-play', img: 'DOTA 2.webp', Description: 'Командная MOBA с сотнями героев, глубокой стратегией и международными турнирами.' },
+  { slug: 'pubg-battlegrounds', Title: 'PUBG: Battlegrounds', Price: 0, developer: 'KRAFTON', game_year: 2017, Genre: 'Battle Royale, Free-to-play', img: 'PUBG.webp', Description: 'Классический королевский бой: 100 игроков, остров, поиск оружия и борьба за выживание.' },
+  // Новые платные игры и скидки для витрины.
+  { slug: 'dragon-age-veilguard', Title: 'Dragon Age: The Veilguard', Price: 2999, oldPrice: 3999, isSale: true, developer: 'BioWare', game_year: 2024, Genre: 'RPG', img: 'dragonAge.svg', Description: 'Сюжетная RPG в мире Тедаса: соберите отряд и определите судьбу всего мира.' },
+  { slug: 'hellblade-senuas-sacrifice', Title: "Hellblade: Senua's Sacrifice", Price: 899, oldPrice: 1199, isSale: true, developer: 'Ninja Theory', game_year: 2017, Genre: 'Action-Adventure', img: 'Rectangle 15.png', Description: 'Психологический экшен о путешествии Сенуы в мир галлюцинаций и древней мифологии.' },
+  { slug: 'dishonored-death-of-the-outsider', Title: 'Dishonored: Death of the Outsider', Price: 699, developer: 'Arkane Studios', game_year: 2017, Genre: 'Stealth, Immersive Sim', img: 'Rectangle 17.png', Description: 'Стелс-приключение в городе Карнеока: тихие убийства и сверходные способности.' },
+  { slug: 'prey-2017', Title: 'Prey', Price: 799, developer: 'Arkane Studios', game_year: 2017, Genre: 'Sci-Fi, Immersive Sim', img: 'Rectangle 21.png', Description: 'Исследование космической станции, захваченной тайфанами, с нелинейным прохождением.' },
+  { slug: 'deus-ex-mankind-divided', Title: 'Deus Ex: Mankind Divided', Price: 599, oldPrice: 999, isSale: true, developer: 'Eidos-Montréal', game_year: 2016, Genre: 'RPG, Stealth', img: 'Rectangle 63.svg', Description: 'Киберпанк-RPG о конспирации, улучшениях тела и выборе между компромиссом и бунтом.' },
+  { slug: 'batman-arkham-knight', Title: 'Batman: Arkham Knight', Price: 899, developer: 'Rocksteady Studios', game_year: 2015, Genre: 'Action-Adventure', img: 'Rectangle 64.svg', Description: 'Финал трилогии Аркхем: Готэм, Бэтмобиль и последняя битва с Джокером.' },
+  { slug: 'horizon-zero-dawn', Title: 'Horizon Zero Dawn', Price: 1099, oldPrice: 1499, isSale: true, developer: 'Guerrilla Games', game_year: 2017, Genre: 'Action-RPG', img: 'Rectangle 65.svg', Description: 'Открытый мир после катастрофы, где охотница Алой охотится на механических зверей.' },
 ];
 
 async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string) {
@@ -179,7 +191,7 @@ const DLC_CATALOG = [
     Description: 'Новый регион Танедд, подземелья, турниры и история местной герцогини.',
     Price: 399,
     oldPrice: 799,
-    img: 'i (2).webp',
+    img: 'witcher.svg',
   },
   {
     gameTitle: 'The Witcher 3',
@@ -187,7 +199,7 @@ const DLC_CATALOG = [
     Description: 'Сюжетная кампания с новыми заданиями и знакомым лицом из прошлого.',
     Price: 249,
     oldPrice: 499,
-    img: 'i (3).webp',
+    img: 'witcher.svg',
   },
   {
     gameTitle: 'Cyberpunk 2077',
