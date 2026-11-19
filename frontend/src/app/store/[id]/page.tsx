@@ -41,17 +41,21 @@ export async function generateMetadata({
   let raw: any = null;
   try {
     raw = await fetchFromStrapi(`games/${id}`);
-  } catch {}
+  } catch (e) {
+    console.error("[game] Ошибка Strapi (metadata):", e);
+  }
   const product = normalize(raw);
   if (!product) return { title: "Игра не найдена | UnifiedStack" };
 
+  const description = product.description.substring(0, 160);
+
   return {
     title: `${product.title} — UnifiedStack`,
-    description: product.description.substring(0, 160),
+    description,
     openGraph: {
       title: product.title,
-      description: product.description.substring(0, 160),
-      images: [product.image],
+      description,
+      images: [{ url: product.image, alt: product.title }],
     },
   };
 }
@@ -66,7 +70,9 @@ export default async function ProductPage({
   let raw: any = null;
   try {
     raw = await fetchFromStrapi(`games/${id}`);
-  } catch {}
+  } catch (e) {
+    console.error("[game] Ошибка Strapi:", e);
+  }
 
   const product = normalize(raw);
   if (!product) notFound();

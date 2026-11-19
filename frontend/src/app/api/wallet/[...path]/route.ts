@@ -2,27 +2,18 @@
  * Серверный прокси денежного API Strapi.
  *
  * Браузер → /api/wallet/wallets/* → Strapi /api/wallets/*.
- * JWT пользователя проверяется в Strapi; в ответ 401 добавляется понятное
- * сообщение. Вся денежная логика и защита от двойного списания — на бэкенде.
+ * JWT пользователя берётся из httpOnly-куки и проверяется в Strapi; в ответ
+ * 401 добавляется понятное сообщение. Вся денежная логика и защита от
+ * двойного списания — на бэкенде.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-
-const STRAPI_URL =
-  process.env.STRAPI_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_STRAPI_URL ||
-  'http://127.0.0.1:1337';
+import { getAuthToken, STRAPI_URL } from '@/lib/serverAuth';
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 
-function getToken(req: NextRequest): string | null {
-  const header = req.headers.get('authorization') || '';
-  if (header.startsWith('Bearer ')) return header.slice(7);
-  return req.cookies.get('jwt')?.value ?? null;
-}
-
 async function proxy(req: NextRequest, resource: string, ctx: Ctx) {
-  const token = getToken(req);
+  const token = getAuthToken(req);
   if (!token) {
     return NextResponse.json(
       { error: { message: 'Требуется авторизация', status: 401 } },

@@ -76,8 +76,8 @@ DATABASE_PASSWORD=strapi
 ## Проверка
 
 ```bash
-# сиды (при остановленном Strapi)
-cd backend && node scripts/seed-games.js
+# каталог игр синхронизируется автоматически при старте Strapi
+# (backend/src/data/catalog.json → upsert по slug, повторный запуск безопасен)
 
 # ограничения БД на SQLite
 node tests/constraints-e2e.js
@@ -88,6 +88,9 @@ $env:DATABASE_CLIENT='postgres'; node tests/constraints-e2e.js
 
 # тесты денежной логики (по умолчанию http://127.0.0.1:1337)
 node tests/money-e2e.js
+
+# единый каталог (slug, все игры) и цена из БД при списании
+node tests/catalog-e2e.js
 
 # тот же e2e на другом инстансе (например, PostgreSQL на :1338)
 $env:API_URL='http://127.0.0.1:1338'; node tests/money-e2e.js

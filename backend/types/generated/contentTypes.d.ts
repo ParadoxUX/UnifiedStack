@@ -879,6 +879,7 @@ export interface ApiGameGame extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<0>;
+    slug: Schema.Attribute.UID<'Title'>;
     stock: Schema.Attribute.Integer &
       Schema.Attribute.SetMinMax<
         {

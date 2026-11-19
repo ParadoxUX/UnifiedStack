@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import { useState } from 'react';
-import { products } from '@/data/products';
 import { showToast } from '@/lib/toast';
 import Icon from '@/components/ui/Icon';
 
@@ -11,7 +10,7 @@ export default function LibraryCard({ game, onRemove }: any) {
   );
   const [loading, setLoading] = useState(false);
 
-  const initialCover = game.image || products[game.id]?.image || '/img/game-placeholder.svg';
+  const initialCover = game.image || '/img/game-placeholder.svg';
   const [coverSrc, setCoverSrc] = useState(initialCover);
 
   const handleInstall = () => {

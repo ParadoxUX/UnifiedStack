@@ -32,6 +32,10 @@
     "Title": {
       "type": "string"
     },
+    "slug": {
+      "type": "uid",
+      "targetField": "Title"
+    },
     "Cover": {
       "type": "media",
       "multiple": false,

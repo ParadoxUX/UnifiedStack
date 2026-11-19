@@ -266,17 +266,38 @@ async function move(
     metadata?: Record<string, unknown>;
     guard?: (trx: any, wallet: WalletRow) => Promise<void>;
     extra?: (trx: any, walletId: number) => Promise<Record<string, unknown> | void>;
+    /**
+     * Позволяет пересчитать сумму внутри транзакции, непосредственно перед
+     * списанием (например, взять актуальную цену игры из БД).
+     */
+    resolveAmount?: (
+      trx: any
+    ) => Promise<{ amount: number; metadata?: Record<string, unknown> }>;
   }
 ) {
-  const signedAmount = params.type === 'withdraw' || params.type === 'purchase'
-    ? -Math.abs(params.amount)
-    : Math.abs(params.amount);
+  const toSigned = (amount: number) =>
+    params.type === 'withdraw' || params.type === 'purchase'
+      ? -Math.abs(amount)
+      : Math.abs(amount);
+
+  const applyMove = async (trx: any, locked: WalletRow) => {
+    let amount = params.amount;
+    let metadata = params.metadata;
+
+    if (params.resolveAmount) {
+      const resolved = await params.resolveAmount(trx);
+      amount = resolved.amount;
+      metadata = resolved.metadata ?? metadata;
+    }
+
+    return performMove(strapi, trx, { ...params, metadata }, locked, toSigned(amount));
+  };
 
   if (isPostgres(strapi)) {
     const wallet = await ensureWallet(strapi, params.userId);
     return strapi.db.transaction(async ({ trx }) => {
       const locked = await lockWallet(strapi, trx, Number(wallet.id));
-      return performMove(strapi, trx, params, locked, signedAmount);
+      return applyMove(trx, locked);
     });
   }
 
@@ -286,7 +307,7 @@ async function move(
     const wallet = await ensureWallet(strapi, params.userId);
     return strapi.db.transaction(async ({ trx }) => {
       const locked = await lockWallet(strapi, trx, Number(wallet.id));
-      return performMove(strapi, trx, params, locked, signedAmount);
+      return applyMove(trx, locked);
     });
   });
 }
@@ -378,9 +399,6 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
     throw new ApplicationError('Игра недоступна для покупки');
   }
 
-  const price = Number(game.Price ?? 0);
-  if (price < 0) throw new ApplicationError('Некорректная цена игры');
-
   const existingTx = await strapi.db.query('api::transaction.transaction').findOne({
     where: { reference: args.reference },
   });
@@ -388,15 +406,44 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
     return { balance: wallet.balance, transaction: existingTx, game, idempotent: true };
   }
 
+  // Цена, которая реально спишется. Заполняется в resolveAmount внутри
+  // транзакции и используется для записи в библиотеку — значения не расходятся.
+  let chargedPrice = Number(game.Price ?? 0);
+
   // Проверка владения выполняется внутри транзакции, после блокировки кошелька.
   // На PostgreSQL это FOR UPDATE, на SQLite — очередь операций по кошельку.
   const result = await move(strapi, {
     userId: args.userId,
     type: 'purchase',
-    amount: price,
+    // Сумма не берётся с клиента: resolveAmount читает цену из БД
+    // непосредственно перед списанием, уже внутри транзакции.
+    amount: 0,
     reference: args.reference,
     gameId: game.id,
-    metadata: price === 0 ? { free: true, title: game.Title } : { title: game.Title, price },
+    resolveAmount: async (trx) => {
+      // Читаем цену через транзакцию: это то же соединение, что и списание.
+      const knex = trx ?? (strapi.db.connection as any);
+      const fresh = await knex('games').where({ id: game.id }).first();
+      if (!fresh) throw new ApplicationError('Игра не найдена');
+      if (fresh.purchasable === false || fresh.purchasable === 0) {
+        throw new ApplicationError('Игра недоступна для покупки');
+      }
+
+      const freshPrice = Number(fresh.price ?? 0);
+      if (!Number.isFinite(freshPrice) || freshPrice < 0) {
+        throw new ApplicationError('Некорректная цена игры');
+      }
+
+      chargedPrice = freshPrice;
+
+      return {
+        amount: freshPrice,
+        metadata:
+          freshPrice === 0
+            ? { free: true, title: fresh.title }
+            : { title: fresh.title, price: freshPrice },
+      };
+    },
     guard: async (_trx, locked) => {
       const owned = await strapi.db
         .query('api::library-item.library-item')
@@ -410,7 +457,7 @@ async function purchaseGame(strapi: Core.Strapi, args: PurchaseArgs) {
       if (owned) throw new ApplicationError('Игра уже приобретена');
     },
     extra: async (trx, walletId) => {
-      const item = await createLibraryItem(strapi, walletId, game, price);
+      const item = await createLibraryItem(strapi, walletId, game, chargedPrice);
       await bumpGameStatus(strapi, trx, game);
       return { libraryItem: item, game };
     },

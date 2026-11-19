@@ -4,9 +4,9 @@
 
 ## Структура проекта
 
-- `backend/` — Strapi v5 CMS (API, JWT-авторизация, сервис кошелька, SQLite/PostgreSQL, автосид 30 игр и тарифов)
+- `backend/` — Strapi v5 CMS (API, JWT-авторизация, единый каталог игр с идемпотентным сидом по slug, сервис кошелька, SQLite/PostgreSQL, автосид 30 игр и тарифов)
 - `frontend/` — Next.js 16 + React 19 + TypeScript (витрина, страница игры в стиле Steam, библиотека, облако, профиль)
-- `docs/` — документация платёжной системы (`docs/payments.md`)
+- `docs/` — документация платёжной системы (`docs/payments.md`) и авторизации (`docs/auth.md`)
 
 ## Требования
 
@@ -32,7 +32,7 @@
 
 - API: `http://localhost:1337`
 - Админ-панель: `http://localhost:1337/admin` (при первом входе создайте локального администратора)
-- При старте автоматически создаётся SQLite БД (`backend/.tmp/data.db`), загружаются 30 игр с обложками, баннеры и тарифы.
+- При старте автоматически создаётся SQLite БД (`backend/.tmp/data.db`), загружаются 30 игр с обложками, баннеры и тарифы. Каталог игр — единый файл `backend/src/data/catalog.json`, сид идемпотентный (upsert по `slug`), повторный запуск не создаёт дубликатов.
 
 #### База данных
 
@@ -70,10 +70,19 @@
     # денежная логика (Strapi запущен на :1337)
     cd ../backend && node tests/money-e2e.js
 
+    # единый каталог и цена из БД при списании
+    node tests/catalog-e2e.js
+
     # ограничения БД (SQLite по умолчанию; для PostgreSQL задайте DATABASE_CLIENT=postgres)
     node tests/constraints-e2e.js
 
     # безопасность тикетов поддержки (аноним, подмена Author, rate limit)
     node tests/support-e2e.js
+
+    # cookie-авторизация и защита /library, /profile (Next.js запущен на :3000)
+    cd ../frontend && node tests/auth-cookie-e2e.js
+
+    # SEO-метаданные (openGraph) и описание на странице игры
+    node tests/game-page-seo-e2e.js
 
 Результаты `money-e2e.js` одинаковы на SQLite и PostgreSQL; для второго инстанса задайте `API_URL`. Полный список проверок — в [`docs/payments.md`](docs/payments.md#проверка).

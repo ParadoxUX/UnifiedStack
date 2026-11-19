@@ -14,6 +14,7 @@
     "test:money": "node tests/money-e2e.js",
     "test:constraints": "node tests/constraints-e2e.js",
     "test:support": "node tests/support-e2e.js",
+    "test:catalog": "node tests/catalog-e2e.js",
     "strapi": "strapi",
     "upgrade": "npx @strapi/upgrade latest",
     "upgrade:dry": "npx @strapi/upgrade latest --dry"
