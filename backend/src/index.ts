@@ -1,10 +1,15 @@
 import type { Core } from '@strapi/strapi';
+import fs from 'fs';
+import path from 'path';
 import { runWalletMigration } from './migrations/wallet-constraints';
 import { seedCatalog } from './utils/seed-catalog';
 import { seedCommunity } from './utils/seed-community';
 
-const PUBLIC_PERMISSIONS: Array<{ api: string; singular: string; actions: string[] }> = [
+type PermissionGroup = { api: string; singular: string; actions: string[] };
+
+const PUBLIC_PERMISSIONS: PermissionGroup[] = [
   { api: 'games', singular: 'game', actions: ['find', 'findOne'] },
+  { api: 'dlcs', singular: 'dlc', actions: ['find', 'findOne'] },
   { api: 'banners', singular: 'banner', actions: ['find', 'findOne'] },
   { api: 'categories', singular: 'category', actions: ['find', 'findOne'] },
   { api: 'events', singular: 'event', actions: ['find', 'findOne'] },
@@ -22,12 +27,131 @@ const PUBLIC_PERMISSIONS: Array<{ api: string; singular: string; actions: string
   { api: 'popular-topics', singular: 'popular-topic', actions: ['find', 'findOne'] },
 ];
 
+// Публичный доступ к загруженным медиа: фронтенд берёт url обложек, скриншотов и видео.
+const PUBLIC_UPLOAD_PERMISSIONS = [
+  'plugin::upload.content-api.find',
+  'plugin::upload.content-api.findOne',
+];
+
 // Доступно только роли Authenticated (аноним создать тикет не может).
-const AUTHENTICATED_ONLY_PERMISSIONS: Array<{
-  api: string;
-  singular: string;
-  actions: string[];
-}> = [{ api: 'support-tickets', singular: 'support-ticket', actions: ['create'] }];
+const AUTHENTICATED_ONLY_PERMISSIONS: PermissionGroup[] = [
+  { api: 'support-tickets', singular: 'support-ticket', actions: ['create'] },
+];
+
+const MIME_MAP: Record<string, string> = {
+  '.webp': 'image/webp',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+};
+
+const DLC_CATALOG = [
+  {
+    gameTitle: 'The Witcher 3',
+    Title: 'The Witcher 3: Blood and Wine',
+    Description: 'Новый регион Туссент, подземелья, турниры и история местной герцогини.',
+    Price: 399,
+    oldPrice: 799,
+    img: 'witcher.svg',
+  },
+  {
+    gameTitle: 'The Witcher 3',
+    Title: 'The Witcher 3: Hearts of Stone',
+    Description: 'Сюжетная кампания с новыми заданиями и знакомым лицом из прошлого.',
+    Price: 249,
+    oldPrice: 499,
+    img: 'witcher.svg',
+  },
+  {
+    gameTitle: 'Cyberpunk 2077',
+    Title: 'Cyberpunk 2077: Phantom Liberty',
+    Description: 'Шпионский сюжет в новом районе и новая ветка финала.',
+    Price: 899,
+    oldPrice: 1499,
+    img: 'cyberpunk.webp',
+  },
+  {
+    gameTitle: 'Elden Ring',
+    Title: 'Elden Ring: Shadow of the Erdtree',
+    Description: 'Большое дополнение с новой картой, боссами и механиками.',
+    Price: 1199,
+    img: 'S600xU_2x (1).webp',
+  },
+  {
+    gameTitle: 'GTA V',
+    Title: 'GTA V: Criminal Enterprise Starter Pack',
+    Description: 'Стартовый набор для GTA Online: бизнес, техника и игровая валюта.',
+    Price: 499,
+    oldPrice: 999,
+    img: 'gta5.webp',
+  },
+  {
+    gameTitle: 'It Takes Two',
+    Title: 'It Takes Two: Versailles Trials',
+    Description: 'Дополнительные испытания и новые сцены для вдвоём.',
+    Price: 199,
+    img: 'ItTakesTwo.webp',
+  },
+];
+
+async function uploadLocalCover(strapi: Core.Strapi, imgFileName: string) {
+  const cleanName = path.parse(imgFileName).name;
+  const existing = await strapi.db.query('plugin::upload.file').findOne({
+    where: { name: cleanName },
+  });
+  if (existing) return existing;
+
+  const fullPath = path.resolve(process.cwd(), '..', 'frontend', 'public', 'img', imgFileName);
+  if (!fs.existsSync(fullPath)) return null;
+
+  const stats = fs.statSync(fullPath);
+  const ext = path.extname(imgFileName).toLowerCase();
+  const mimeType = MIME_MAP[ext] || 'image/webp';
+
+  const uploaded = await strapi.plugin('upload').service('upload').upload({
+    files: {
+      filepath: fullPath,
+      originalFileName: imgFileName,
+      size: stats.size,
+      mimetype: mimeType,
+    },
+    data: {
+      fileInfo: {
+        name: cleanName,
+        alternativeText: cleanName,
+        caption: cleanName,
+      },
+    },
+  });
+
+  return Array.isArray(uploaded) ? uploaded[0] : uploaded;
+}
+
+async function seedDlcs(strapi: Core.Strapi) {
+  for (const item of DLC_CATALOG) {
+    const game = await strapi.db.query('api::game.game').findOne({ where: { Title: item.gameTitle } });
+    const cover = await uploadLocalCover(strapi, item.img);
+    const existing = await strapi.db.query('api::dlc.dlc').findOne({ where: { Title: item.Title } });
+
+    const data = {
+      Title: item.Title,
+      Description: item.Description,
+      Price: item.Price,
+      oldPrice: item.oldPrice ?? null,
+      game: game?.id ?? null,
+      Cover: cover?.id ?? null,
+      publishedAt: new Date(),
+    };
+
+    if (existing) {
+      await strapi.db.query('api::dlc.dlc').update({ where: { id: existing.id }, data });
+    } else {
+      await strapi.db.query('api::dlc.dlc').create({ data });
+    }
+  }
+  strapi.log.info(`[dlc] Синхронизировано дополнений: ${DLC_CATALOG.length}`);
+}
 
 async function seedInitialTariffs(strapi: Core.Strapi) {
   const count = await strapi.db.query('api::tariff.tariff').count();
@@ -57,12 +181,14 @@ async function seedInitialTariffs(strapi: Core.Strapi) {
   for (const t of tariffs) {
     await strapi.db.query('api::tariff.tariff').create({ data: t });
   }
-  console.log('[seed] Добавлено облачных тарифов: 3');
+  strapi.log.info(`[seed] Добавлено облачных тарифов: ${tariffs.length}`);
 }
+
 async function ensureRolePermissions(
   strapi: Core.Strapi,
   roleType: string,
-  permissions: Array<{ api: string; singular: string; actions: string[] }>
+  permissions: PermissionGroup[],
+  rawActions: string[] = []
 ) {
   const role = await strapi.db.query('plugin::users-permissions.role').findOne({
     where: { type: roleType },
@@ -74,18 +200,21 @@ async function ensureRolePermissions(
   });
   const existingActions = new Set(existing.map((p: { action: string }) => p.action));
 
-  const toCreate: Array<Promise<unknown>> = [];
+  const wanted = new Set<string>(rawActions);
   for (const { singular, actions } of permissions) {
     for (const action of actions) {
-      const fullAction = `api::${singular}.${singular}.${action}`;
-      if (existingActions.has(fullAction)) continue;
-      toCreate.push(
-        strapi.db.query('plugin::users-permissions.permission').create({
-          data: { action: fullAction, role: role.id },
-        })
-      );
+      wanted.add(`api::${singular}.${singular}.${action}`);
     }
   }
+
+  const toCreate = [...wanted]
+    .filter((action) => !existingActions.has(action))
+    .map((action) =>
+      strapi.db.query('plugin::users-permissions.permission').create({
+        data: { action, role: role.id },
+      })
+    );
+
   await Promise.all(toCreate);
 }
 
@@ -107,18 +236,27 @@ async function revokeRolePermissions(
 }
 
 async function cleanupInvalidPermissions(strapi: Core.Strapi) {
-  const invalid = await strapi.db
+  const knownUids = new Set(
+    Object.keys(strapi.contentTypes).filter((uid) => uid.startsWith('api::'))
+  );
+
+  const candidates = await strapi.db
     .query('plugin::users-permissions.permission')
     .findMany({ where: { action: { $startsWith: 'api::' } } });
 
-  const wrong = invalid.filter((p: { action: string }) => {
-    const uid = p.action.split('.');
-    return uid.length === 4 && uid[2].endsWith('s');
+  const wrong = candidates.filter((p: { action: string }) => {
+    const parts = p.action.split('.');
+    if (parts.length !== 4) return false;
+    if (knownUids.has(`${parts[0]}.${parts[1]}`)) return false;
+    return parts[1].endsWith('s');
   });
 
-  for (const p of wrong) {
-    await strapi.db.query('plugin::users-permissions.permission').delete({ where: { id: (p as { id: number }).id } });
-  }
+  if (!wrong.length) return;
+
+  await strapi.db.query('plugin::users-permissions.permission').deleteMany({
+    where: { id: { $in: wrong.map((p: { id: number }) => p.id) } },
+  });
+  strapi.log.warn(`[permissions] Удалено некорректных прав: ${wrong.length}`);
 }
 
 export default {
@@ -127,13 +265,13 @@ export default {
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
     await runWalletMigration(strapi);
     await seedCatalog(strapi);
+    await seedDlcs(strapi);
     await seedInitialTariffs(strapi);
     await seedCommunity(strapi);
     await cleanupInvalidPermissions(strapi);
-    await ensureRolePermissions(strapi, 'public', PUBLIC_PERMISSIONS);
-    await ensureRolePermissions(strapi, 'authenticated', PUBLIC_PERMISSIONS);
+    await ensureRolePermissions(strapi, 'public', PUBLIC_PERMISSIONS, PUBLIC_UPLOAD_PERMISSIONS);
+    await ensureRolePermissions(strapi, 'authenticated', PUBLIC_PERMISSIONS, PUBLIC_UPLOAD_PERMISSIONS);
     await ensureRolePermissions(strapi, 'authenticated', AUTHENTICATED_ONLY_PERMISSIONS);
-    // Убираем create из public у уже существующих БД.
     await revokeRolePermissions(strapi, 'public', [
       'api::support-ticket.support-ticket.create',
     ]);

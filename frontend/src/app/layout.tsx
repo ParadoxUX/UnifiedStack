@@ -20,6 +20,7 @@ import "@/styles/mobile.css";
 import "@/styles/friends.css";
 import "@/styles/forums.css";
 import "@/styles/poisk.css";
+import "@/styles/ui-refresh.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

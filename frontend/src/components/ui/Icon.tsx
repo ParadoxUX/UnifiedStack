@@ -27,7 +27,16 @@ export type IconName =
   | "clock"
   | "eye"
   | "plus"
-  | "heart";
+  | "heart"
+  | "play"
+  | "pause"
+  | "image"
+  | "expand"
+  | "left"
+  | "right"
+  | "wallet"
+  | "help"
+  | "headset";
 
 const ICONS: Record<IconName, React.ReactNode> = {
   logo: (
@@ -187,6 +196,52 @@ const ICONS: Record<IconName, React.ReactNode> = {
   ),
   heart: (
     <path d="M12 20.5S3.5 15 3.5 8.8A4.8 4.8 0 0 1 12 5.9a4.8 4.8 0 0 1 8.5 2.9c0 6.2-8.5 11.7-8.5 11.7Z" />
+  ),
+  play: <polygon points="7 4 20 12 7 20 7 4" fill="currentColor" stroke="none" />,
+  pause: (
+    <>
+      <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none" />
+      <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <circle cx="8.5" cy="9.5" r="1.8" />
+      <path d="M4 17.5 9.5 12l4 4 3-2.5L20 17" />
+    </>
+  ),
+  expand: (
+    <>
+      <path d="M9 4H4v5" />
+      <path d="M15 4h5v5" />
+      <path d="M15 20h5v-5" />
+      <path d="M9 20H4v-5" />
+    </>
+  ),
+  left: <polyline points="15 5 8 12 15 19" />,
+  right: <polyline points="9 5 16 12 9 19" />,
+  wallet: (
+    <>
+      <rect x="3" y="6" width="18" height="13" rx="3" />
+      <path d="M3 10h18" />
+      <circle cx="17" cy="14.5" r="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2-2.4 3.6" />
+      <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  headset: (
+    <>
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+      <rect x="2.5" y="13.5" width="4" height="6" rx="2" />
+      <rect x="17.5" y="13.5" width="4" height="6" rx="2" />
+      <path d="M20 19.5v.5a2.5 2.5 0 0 1-2.5 2.5H13" />
+    </>
   ),
 };
 

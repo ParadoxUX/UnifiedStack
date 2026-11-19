@@ -67,7 +67,8 @@ export default function GameCard({
   };
 
   const handleClick = () => {
-    if (!purchased) setShowQuickView(true);
+    // Купленную игру тоже можно открыть: это карточка товара, а не только покупка.
+    setShowQuickView(true);
   };
 
   return (
@@ -127,13 +128,12 @@ export default function GameCard({
           <button
             type="button"
             className={`sellgame2 us-buy-btn ${purchased ? "owned" : ""}`}
-            disabled={purchased}
             onClick={(e) => {
               e.stopPropagation();
-              if (!purchased) setShowQuickView(true);
+              setShowQuickView(true);
             }}
           >
-            {purchased ? "Куплено" : "Купить"}
+            {purchased ? "Открыть" : "Купить"}
           </button>
         </div>
       </article>

@@ -1,13 +1,78 @@
 ﻿import { Metadata } from "next";
-import { fetchFromStrapi } from "@/lib/strapi";
+import { fetchDlcs, fetchFromStrapi } from "@/lib/strapi";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ProductDescription from "@/components/store/ProductDescription";
 import BuyButton from "@/components/store/BuyButton";
 import ProductReviews from "@/components/store/ProductReviews";
 import Icon from "@/components/ui/Icon";
+import GameMediaGallery, { MediaSlide } from "@/components/store/GameMediaGallery";
+import DlcBuyButton from "@/components/store/DlcBuyButton";
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
+
+// Strapi 5: media — либо объект, либо { data: {...} } либо массив таких значений
+function mediaList(value: any): any[] {
+  if (!value) return [];
+  const arr = Array.isArray(value) ? value : value.data ?? [value];
+  return (Array.isArray(arr) ? arr : [arr]).filter(Boolean);
+}
+
+function mediaUrl(file: any): string | null {
+  if (!file) return null;
+  const url = file.url || file.attributes?.url;
+  return url ? `${STRAPI_URL}${url}` : null;
+}
+
+// Ищем первое заполненное поле по списку возможных названий (media / string / JSON)
+function pickField(game: any, keys: string[]) {
+  for (const key of keys) {
+    const value = game?.[key];
+    if (value === undefined || value === null || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    return value;
+  }
+  return null;
+}
+
+function buildSlides(game: any): MediaSlide[] {
+  const slides: MediaSlide[] = [];
+
+  // 1. Трейлеры: media-поле, строковый URL или список ссылок
+  for (const file of mediaList(pickField(game, ["Trailer", "Video", "trailers", "Videos"]))) {
+    const url = typeof file === "string" ? file : mediaUrl(file);
+    if (!url) continue;
+    const poster = mediaUrl(file?.Poster || file) ?? undefined;
+    slides.push({ type: "video", src: url, thumb: poster, caption: game.Title });
+  }
+
+  for (const raw of [
+    game.trailerUrl,
+    game.videoUrl,
+    game.youtubeUrl,
+    ...(Array.isArray(game.TrailerUrls) ? game.TrailerUrls : []),
+    ...(Array.isArray(game.Videos) && typeof game.Videos[0] === "string" ? game.Videos : []),
+  ]) {
+    const url = typeof raw === "string" ? raw.trim() : "";
+    if (url && !slides.some((s) => s.src === url)) slides.push({ type: "video", src: url });
+  }
+
+  // 2. Скриншоты
+  for (const file of mediaList(pickField(game, ["Screenshots", "screenshots", "Gallery", "Media"]))) {
+    const url = typeof file === "string" ? file : mediaUrl(file);
+    if (url) slides.push({ type: "image", src: url, thumb: url, caption: game.Title });
+  }
+
+  // 3. Статичные превью, если скриншотов нет — обложка, баннер и т.п.
+  if (!slides.some((s) => s.type === "image")) {
+    for (const key of ["Preview", "Banner", "Poster", "Image", "artwork"]) {
+      const url = mediaUrl(game[key]);
+      if (url) slides.push({ type: "image", src: url, thumb: url });
+    }
+  }
+
+  return slides;
+}
 
 function normalize(raw: any) {
   if (!raw) return null;
@@ -29,6 +94,7 @@ function normalize(raw: any) {
       : "/img/game-placeholder.svg",
     isSale: Boolean(g.isSale),
     oldPrice: g.oldPrice,
+    media: buildSlides(g),
   };
 }
 
@@ -77,6 +143,12 @@ export default async function ProductPage({
   const product = normalize(raw);
   if (!product) notFound();
 
+  const allDlcs = await fetchDlcs();
+  const dlcs = allDlcs.filter(
+    (d: any) =>
+      String(d.game?.documentId ?? d.game?.id) === String(product.id)
+  );
+
   const discount =
     product.isSale && product.oldPrice && product.oldPrice > product.priceNum
       ? Math.round(((product.oldPrice - product.priceNum) / product.oldPrice) * 100)
@@ -117,13 +189,11 @@ export default async function ProductPage({
         <div className="us-steam-layout">
           {/* Левая основная колонка */}
           <div className="us-steam-main">
-            <div className="us-steam-showcase">
-              <img src={product.image} alt={product.title} />
-              <div className="us-steam-showcase-bar">
-                <span>Цифровое издание • Мгновенная активация</span>
-                <span>{product.platform}</span>
-              </div>
-            </div>
+            <GameMediaGallery
+              slides={product.media}
+              fallback={product.image}
+              title={product.title}
+            />
 
             {/* Плашка покупки в стиле Steam */}
             <div className="us-steam-buy-box">
@@ -157,6 +227,51 @@ export default async function ProductPage({
                 />
               </div>
             </div>
+
+            {/* Дополнения (DLC) — отдельные товары с отдельной покупкой */}
+            {dlcs.length > 0 && (
+              <section className="ur-dlc-section">
+                <div className="ur-dlc-head">
+                  <div>
+                    <p className="ur-kicker">Дополнения</p>
+                    <h2>Расширьте свою игру</h2>
+                    <p className="ur-subtitle">Покупается отдельно, добавляется в библиотеку сразу</p>
+                  </div>
+                  <span className="ur-dlc-count">{dlcs.length} DLC</span>
+                </div>
+                <div className="ur-dlc-grid">
+                  {dlcs.map((d: any) => {
+                    const dlcId = String(d.documentId ?? d.id);
+                    const cover = d.Cover?.url
+                      ? `${STRAPI_URL}${d.Cover.url}`
+                      : product.image;
+                    const price = Number(d.Price ?? 0);
+                    const old = Number(d.oldPrice ?? 0);
+                    const dlcDiscount = old > price ? Math.round((1 - price / old) * 100) : 0;
+                    return (
+                      <article className="ur-dlc-card" key={dlcId}>
+                        <div className="ur-dlc-cover">
+                          <img src={cover} alt={d.Title} loading="lazy" />
+                          <span className="ur-dlc-badge">DLC</span>
+                          {dlcDiscount > 0 && (
+                            <span className="ur-dlc-discount">−{dlcDiscount}%</span>
+                          )}
+                        </div>
+                        <div className="ur-dlc-body">
+                          <h3>{d.Title}</h3>
+                          <p>{d.Description}</p>
+                          <div className="ur-dlc-price-row">
+                            {dlcDiscount > 0 && <span className="ur-dlc-old">{old} ₽</span>}
+                            <span className="ur-dlc-price">{price} ₽</span>
+                          </div>
+                          <DlcBuyButton dlcId={dlcId} title={d.Title} price={price} />
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {/* Об игре */}
             <section className="us-steam-section">

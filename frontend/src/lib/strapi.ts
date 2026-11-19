@@ -64,8 +64,21 @@ export async function postToStrapi(endpoint: string, data: unknown) {
 }
 
 export async function fetchGames() {
-  const result = await fetchFromStrapi("games");
-  return Array.isArray(result) ? result : [];
+  // Ходим через серверный прокси Next.js: прямой запрос из браузера
+  // блокируется CORS Strapi. Прокси также задаёт pageSize = 100.
+  const res = await fetch("/api/games", { cache: "no-store" });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return Array.isArray(json?.data) ? json.data : [];
+}
+
+export async function fetchDlcs() {
+  try {
+    const result = await fetchFromStrapi("dlcs?populate=*&pagination[pageSize]=100");
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchGameById(id: string) {

@@ -10,6 +10,7 @@ import {
   publicMessageFor,
   walletError,
 } from '../../../utils/wallet-errors';
+import { cloudService } from '../../../services/cloud';
 
 function requireUser(ctx: any) {
   const user = ctx.state.user;
@@ -81,6 +82,77 @@ export default {
       ctx.body = { data: result };
     } catch (err) {
       fail(ctx, err, 'Не удалось выполнить покупку');
+    }
+  },
+
+  async purchaseDlc(ctx: any) {
+    const user = requireUser(ctx);
+    const { dlcId, reference } = ctx.request.body ?? {};
+    if (!dlcId || (typeof dlcId !== 'number' && typeof dlcId !== 'string') || String(dlcId).trim() === '') {
+      fail(ctx, walletError('invalidInput', { field: 'dlcId' }), 'Некорректный dlcId');
+      return;
+    }
+
+    try {
+      const result = await walletService.purchaseDlc(strapi, {
+        userId: user.id,
+        dlcId: String(dlcId).trim(),
+        reference: reference || `dlc_${user.id}_${dlcId}_${Date.now()}`,
+      });
+      ctx.body = { data: result };
+    } catch (err) {
+      fail(ctx, err, 'Ошибка покупки дополнения');
+    }
+  },
+
+  async cloudStart(ctx: any) {
+    const user = requireUser(ctx);
+    const { tariffId, minutes, server, kind } = ctx.request.body ?? {};
+    if (!tariffId) ctx.throw(400, 'tariffId обязателен');
+
+    try {
+      const result = await cloudService.startSession(strapi, {
+        userId: user.id,
+        tariffId: String(tariffId),
+        minutes: Number(minutes) || 60,
+        server: String(server || 'EU-Central'),
+        kind: kind === 'account' ? 'account' : 'timed',
+      });
+      ctx.body = { data: result };
+    } catch (err: any) {
+      ctx.throw(400, err?.message || 'Не удалось запустить сессию');
+    }
+  },
+
+  async cloudActive(ctx: any) {
+    const user = requireUser(ctx);
+    const session = await cloudService.activeSession(strapi, user.id);
+    ctx.body = { data: { session, accountPrice: cloudService.ACCOUNT_PRICE } };
+  },
+
+  async cloudStop(ctx: any) {
+    const user = requireUser(ctx);
+    try {
+      const result = await cloudService.stopSession(strapi, user.id);
+      ctx.body = { data: result };
+    } catch (err: any) {
+      ctx.throw(400, err?.message || 'Не удалось остановить сессию');
+    }
+  },
+
+  async cloudHistory(ctx: any) {
+    const user = requireUser(ctx);
+    ctx.body = { data: await cloudService.history(strapi, user.id) };
+  },
+
+  async cloudGame(ctx: any) {
+    const user = requireUser(ctx);
+    const { gameId } = ctx.request.body ?? {};
+    if (!gameId) ctx.throw(400, 'gameId обязателен');
+    try {
+      ctx.body = { data: await cloudService.selectGame(strapi, user.id, String(gameId)) };
+    } catch (err: any) {
+      ctx.throw(400, err?.message || 'Не удалось выбрать игру');
     }
   },
 

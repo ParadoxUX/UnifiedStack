@@ -10,8 +10,8 @@ import { getAuthToken, STRAPI_URL } from '@/lib/serverAuth';
 const MAX_BODY_BYTES = 8 * 1024;
 
 const ALLOWED_ROUTES: Record<string, readonly string[]> = {
-  GET: ['me', 'library'],
-  POST: ['withdraw', 'purchase', 'reverse'],
+  GET: ["me", "library", "cloud/active", "cloud/history"],
+  POST: ["withdraw", "purchase", "purchase-dlc", "reverse", "cloud/start", "cloud/stop", "cloud/game"],
 };
 
 type Ctx = { params: Promise<{ path?: string[] }> };
@@ -27,8 +27,8 @@ function resolvePath(segments: string[]): string[] | null {
 
 function isAllowed(method: string, path: string[]): boolean {
   const allowed = ALLOWED_ROUTES[method];
-  if (!allowed || path.length !== 1) return false;
-  return allowed.includes(path[0]);
+  if (!allowed || path.length === 0) return false;
+  return allowed.includes(path.join("/"));
 }
 
 async function proxy(req: NextRequest, ctx: Ctx) {

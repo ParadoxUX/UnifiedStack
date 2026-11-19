@@ -1,0 +1,61 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cloud_sessions",
+  "info": {
+    "singularName": "cloud-session",
+    "pluralName": "cloud-sessions",
+    "displayName": "CloudSession"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "tariff": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::tariff.tariff"
+    },
+    "game": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::game.game"
+    },
+    "kind": {
+      "type": "enumeration",
+      "enum": ["timed", "account"],
+      "default": "timed",
+      "required": true
+    },
+    "minutesTotal": {
+      "type": "integer"
+    },
+    "minutesLeft": {
+      "type": "integer"
+    },
+    "startedAt": {
+      "type": "datetime"
+    },
+    "endsAt": {
+      "type": "datetime"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["active", "stopped", "expired"],
+      "default": "active",
+      "required": true
+    },
+    "server": {
+      "type": "string"
+    },
+    "reference": {
+      "type": "string",
+      "unique": true
+    }
+  }
+}

@@ -28,6 +28,11 @@
     "gameId": {
       "type": "integer"
     },
+    "dlc": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::dlc.dlc"
+    },
     "status": {
       "type": "enumeration",
       "enum": ["owned", "installed", "refunded"],

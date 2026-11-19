@@ -33,6 +33,7 @@ export interface LibraryItem {
   status: "owned" | "installed" | "refunded";
   pricePaid: number;
   purchasedAt: string;
+  dlc?: { id: number; documentId?: string; Title?: string; Price?: number };
   game?: {
     id: number;
     documentId?: string;
@@ -118,6 +119,17 @@ export async function fetchLibrary(): Promise<LibraryItem[]> {
 export async function fetchTransactions(): Promise<WalletTransaction[]> {
   const wallet = await fetchWallet();
   return wallet.transactions ?? [];
+}
+
+/** Покупка DLC — отдельная транзакция и отдельная запись в библиотеке. */
+export async function purchaseDlc(dlcId: string | number, reference?: string): Promise<Wallet> {
+  return request<Wallet>("/wallets/purchase-dlc", {
+    method: "POST",
+    body: JSON.stringify({
+      dlcId,
+      reference: reference ?? `dlc_${Date.now()}_${dlcId}`,
+    }),
+  });
 }
 
 /** Детерминированный ключ идемпотентности покупки. */
