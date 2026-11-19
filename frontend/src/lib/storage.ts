@@ -1,7 +1,7 @@
 // src/lib/storage.ts
 // Per-user изоляция localStorage (перенос из storage.js)
 
-const GLOBAL_KEYS = ['ampligame_current_user', 'ampligame_users', 'app_theme', 'app_language'];
+const GLOBAL_KEYS = ['ampligame_current_user', 'app_theme', 'app_language'];
 const PER_USER_KEYS = [
   'user_nickname', 'user_avatar', 'user_display_name', 'user_balance',
   'user_game_library', 'user_achievements', 'user_friends',

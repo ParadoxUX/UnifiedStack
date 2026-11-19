@@ -1,16 +1,28 @@
 const STRAPI_URL =
   process.env.NEXT_PUBLIC_STRAPI_URL || "http://127.0.0.1:1337";
 
-// JWT пользователя Strapi (добавляется к запросам, если есть)
-function authHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("ampligame_jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+// Strapi по умолчанию отдаёт 25 записей. Каталог и списки грузим целиком.
+const DEFAULT_PAGE_SIZE = 200;
+
+// JWT пользователя Strapi больше не читается из localStorage: запросы записи
+// идут через серверный прокси /api/strapi/*, который сам достаёт токен из
+// httpOnly-куки.
+
+function withPagination(endpoint: string): string {
+  const hasQuery = endpoint.includes("?");
+  const params: string[] = [];
+
+  if (!hasQuery) params.push("populate=*");
+  if (!endpoint.includes("pagination[")) {
+    params.push(`pagination[pageSize]=${DEFAULT_PAGE_SIZE}`);
+  }
+
+  if (params.length === 0) return endpoint;
+  return `${endpoint}${hasQuery ? "&" : "?"}${params.join("&")}`;
 }
 
 export async function fetchFromStrapi(endpoint: string) {
-  const query = endpoint.includes("?") ? "" : "?populate=*";
-  const url = `${STRAPI_URL}/api/${endpoint}${query}`;
+  const url = `${STRAPI_URL}/api/${withPagination(endpoint)}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Ошибка Strapi: ${res.status}`);
   const json = await res.json();
@@ -27,12 +39,14 @@ export async function fetchOneFromStrapi(endpoint: string) {
 }
 
 // Создание записи (POST). При ошибке пробрасываем понятное сообщение.
+// Запрос идёт через серверный прокси: JWT подставляется из httpOnly-куки.
 export async function postToStrapi(endpoint: string, data: unknown) {
-  const url = `${STRAPI_URL}/api/${endpoint}`;
+  const url = `/api/strapi/${endpoint}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ data }),
+    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {
@@ -128,7 +142,7 @@ export async function fetchRequirements() {
 // Баннеры для карусели на главной
 export async function fetchBanners() {
   try {
-    const result = await fetchFromStrapi("banners?populate[Image]=*&populate[game][populate]=Cover");
+    const result = await fetchFromStrapi("banners?populate=*");
     if (Array.isArray(result) && result.length > 0) return result;
   } catch {}
   const games = await fetchGames();
@@ -210,6 +224,7 @@ export async function createForumPost(payload: {
 export interface SupportTicketItem {
   id: string;
   TicketNumber?: string;
+  Author?: string;
   Subject: string;
   Category?: string;
   Priority?: string;
@@ -244,9 +259,6 @@ export async function createSupportTicket(payload: {
   Category: string;
   Priority: string;
   Message: string;
-  ContactEmail: string;
-  Status?: string;
-  TicketNumber?: string;
 }) {
   return postToStrapi("support-tickets", payload);
 }

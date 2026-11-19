@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getJSON, setJSON } from '@/lib/storage';
 import { getWishlist } from '@/lib/wishlist';
-import { products } from '@/data/products';
 import { getCards, getBadges, getCraftableGames, craftBadge, SteamCard } from '@/lib/steamCards';
 import { fetchLibrary } from '@/lib/wallet';
 import { fetchGames } from '@/lib/strapi';
@@ -69,7 +68,7 @@ export default function LibraryPage() {
         );
         const coverUrl = fullGame?.Cover?.url
           ? `${STRAPI_URL}${fullGame.Cover.url}`
-          : lg.image || products[key]?.image || '/img/game-placeholder.svg';
+          : lg.image || '/img/game-placeholder.svg';
 
         mergedMap.set(key, {
           ...lg,

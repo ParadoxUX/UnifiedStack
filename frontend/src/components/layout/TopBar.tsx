@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { getCurrentUser, logout, User } from '@/lib/auth';
 import { getItem } from '@/lib/storage';
 import { fetchWallet } from '@/lib/wallet';
-import { clearStrapiAuth } from '@/lib/strapiAuth';
 import { applyCosmetics } from '@/lib/cosmetics';
 import { useLang } from '@/lib/i18n';
 import Icon from '@/components/ui/Icon';
@@ -48,17 +47,24 @@ export default function TopBar() {
     refresh();
     applyCosmetics();
 
+    // Пришли по редиректу из proxy: показываем окно входа.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'required' && !getCurrentUser()) {
+      setShowAuth(true);
+    }
+
     window.addEventListener('focus', refresh);
     window.addEventListener('storage', refresh);
+    window.addEventListener('us:auth-changed', refresh);
     return () => {
       window.removeEventListener('focus', refresh);
       window.removeEventListener('storage', refresh);
+      window.removeEventListener('us:auth-changed', refresh);
     };
   }, [refresh]);
 
-  const handleLogout = () => {
-    logout();
-    clearStrapiAuth();
+  const handleLogout = async () => {
+    await logout();
     setUser(null);
     window.location.href = '/';
   };
@@ -66,7 +72,13 @@ export default function TopBar() {
   const handleAuthSuccess = () => {
     setShowAuth(false);
     refresh();
-    window.location.reload();
+    const next = new URLSearchParams(window.location.search).get('next');
+    // Только внутренние пути: «//evil.com» — это уже внешний адрес.
+    if (next && next.startsWith('/') && !next.startsWith('//')) {
+      window.location.href = next;
+    } else {
+      window.location.reload();
+    }
   };
 
   if (!mounted) return null;

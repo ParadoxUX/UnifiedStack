@@ -2,7 +2,16 @@
 export function cleanupStorage() {
   if (typeof window === 'undefined') return;
 
-  const CLEANUP_KEY = 'ampligame_cleanup_v1';
+  // Удаляем остатки старой auth-системы: JWT и список пользователей
+  // с паролями больше не должны лежать в localStorage.
+  try {
+    localStorage.removeItem('ampligame_jwt');
+    localStorage.removeItem('ampligame_users');
+  } catch {
+    /* localStorage может быть недоступен */
+  }
+
+  const CLEANUP_KEY = 'ampligame_cleanup_v2';
   if (localStorage.getItem(CLEANUP_KEY) === '1') return;
 
   try {

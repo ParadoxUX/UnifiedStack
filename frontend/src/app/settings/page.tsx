@@ -11,7 +11,7 @@ const TABS = [
   { id: 'privacy', label: 'Приватность' },
   { id: 'notifications', label: 'Уведомления' },
   { id: 'language', label: 'Язык' },
-  { id: 'theme', label: 'Тема' },
+  { id: 'theme', label: 'Тема оформления' },
   { id: 'security', label: 'Безопасность' },
   { id: 'payments', label: 'Платежи' },
 ];

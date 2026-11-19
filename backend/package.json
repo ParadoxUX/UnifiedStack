@@ -11,6 +11,10 @@
     "develop": "strapi develop",
     "seed:example": "node ./scripts/seed.js",
     "start": "strapi start",
+    "test:money": "node tests/money-e2e.js",
+    "test:constraints": "node tests/constraints-e2e.js",
+    "test:support": "node tests/support-e2e.js",
+    "test:catalog": "node tests/catalog-e2e.js",
     "strapi": "strapi",
     "upgrade": "npx @strapi/upgrade latest",
     "upgrade:dry": "npx @strapi/upgrade latest --dry"
@@ -23,6 +27,7 @@
     "better-sqlite3": "12.11.1",
     "fs-extra": "^10.0.0",
     "mime-types": "^2.1.27",
+    "pg": "^8.13.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.30.3",

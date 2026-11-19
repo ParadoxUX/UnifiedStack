@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { applyCosmetics } from '@/lib/cosmetics';
 import { getItem } from '@/lib/storage';
+import { refreshCurrentUser } from '@/lib/auth';
 import { cleanupStorage } from '@/lib/cleanup';
 
 function applyStoredTheme() {
@@ -16,6 +17,12 @@ function applyStoredTheme() {
 
 export default function AppInit() {
   const pathname = usePathname();
+
+  // Один раз за загрузку сверяем кэш профиля с httpOnly-сессией:
+  // если кука истекла, пользователь автоматически разлогинивается.
+  useEffect(() => {
+    refreshCurrentUser();
+  }, []);
 
   useEffect(() => {
     // Одноразовая очистка localStorage

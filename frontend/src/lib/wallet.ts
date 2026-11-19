@@ -2,11 +2,10 @@
  * Клиент денежного API (кошелёк, транзакции, библиотека).
  *
  * Запросы идут через серверный прокси Next.js (/api/wallet/*), который
- * проверяет JWT и пробрасывает их в Strapi. Вся денежная логика и защита
- * от двойного списания — на бэкенде (backend/src/services/wallet.ts).
+ * берёт JWT из httpOnly-куки и пробрасывает его в Strapi. Клиентский код
+ * токен не читает и не хранит. Вся денежная логика и защита от двойного
+ * списания — на бэкенде (backend/src/services/wallet.ts).
  */
-
-const TOKEN_KEY = "ampligame_jwt";
 
 export interface WalletTransaction {
   id: number;
@@ -50,28 +49,14 @@ export class WalletError extends Error {
   }
 }
 
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string | null): void {
-  if (typeof window === "undefined") return;
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
-}
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  if (!token) throw new WalletError("Требуется авторизация", 401);
-
   const res = await fetch(`/api/wallet${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
       ...(init.headers ?? {}),
     },
+    credentials: "same-origin",
     cache: "no-store",
   });
 

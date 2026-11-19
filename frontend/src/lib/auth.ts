@@ -1,4 +1,12 @@
-﻿import { getJSON, setJSON, getItem, setItem, removeItem } from './storage';
+﻿/**
+ * Клиентская авторизация.
+ *
+ * Пароль отправляется только по HTTPS на собственный /api/auth/*, а JWT
+ * Strapi живёт в httpOnly + SameSite=Strict куке и недоступен из JavaScript.
+ * В localStorage остаётся лишь кэш публичного профиля для отрисовки UI.
+ */
+
+import { getItem, setItem, removeItem } from './storage';
 
 export interface User {
   id: string;
@@ -9,13 +17,15 @@ export interface User {
   avatar: string;
 }
 
-const USERS_KEY = 'ampligame_users';
 const CURRENT_USER_KEY = 'ampligame_current_user';
-const TOKEN_KEY = 'ampligame_jwt';
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://127.0.0.1:1337';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USERNAME_REGEX = /^[a-zA-Z0-9_.-]{3,24}$/;
+
+interface AuthResponse {
+  user?: User;
+  error?: { message?: string };
+}
 
 export function getCurrentUser(): User | null {
   const raw = getItem(CURRENT_USER_KEY);
@@ -27,38 +37,31 @@ export function getCurrentUser(): User | null {
   }
 }
 
-export function getAllUsers(): User[] {
-  return getJSON<User[]>(USERS_KEY, []);
-}
-
-export function saveAllUsers(users: User[]): void {
-  setJSON(USERS_KEY, users);
-}
-
 function notifyAuthChange() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('us:auth-changed'));
   }
 }
 
-function mapStrapiAuthError(rawMessage: string): string {
-  const msg = String(rawMessage || '').toLowerCase();
-  if (msg.includes('valid email')) {
-    return 'Введите корректный email с доменом (например, player@mail.ru)';
-  }
-  if (msg.includes('already taken') || msg.includes('unique')) {
-    return 'Такой логин или email уже занят — попробуйте другой';
-  }
-  if (msg.includes('invalid identifier') || msg.includes('invalid password')) {
-    return 'Неверный логин/email или пароль';
-  }
-  if (msg.includes('password') && msg.includes('least')) {
-    return 'Пароль должен содержать минимум 6 символов';
-  }
-  if (msg.includes('username') && msg.includes('least')) {
-    return 'Имя пользователя должно содержать минимум 3 символа';
-  }
-  return rawMessage || 'Ошибка авторизации';
+function cacheUser(user: User): void {
+  setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  notifyAuthChange();
+}
+
+function clearUser(): void {
+  removeItem(CURRENT_USER_KEY);
+  notifyAuthChange();
+}
+
+async function postAuth(path: string, body: Record<string, unknown>): Promise<AuthResponse> {
+  const res = await fetch(`/api/auth/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+  return (await res.json().catch(() => ({}))) as AuthResponse;
 }
 
 export async function register(
@@ -89,44 +92,25 @@ export async function register(
   }
 
   try {
-    const res = await fetch(`${STRAPI_URL}/api/auth/local/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: cleanUsername,
-        email: cleanEmail,
-        password,
-      }),
+    const data = await postAuth('register', {
+      username: cleanUsername,
+      email: cleanEmail,
+      password,
     });
-    const data = await res.json();
 
-    if (!res.ok) {
+    if (!data.user) {
       return {
         success: false,
-        error: mapStrapiAuthError(data?.error?.message),
+        error: data.error?.message || 'Не удалось создать аккаунт',
       };
     }
 
-    if (data.jwt) {
-      setItem(TOKEN_KEY, data.jwt);
-    }
-
-    const user: User = {
-      id: String(data.user.id),
-      strapiId: data.user.id,
-      email: data.user.email,
-      username: data.user.username,
-      createdAt: data.user.createdAt || new Date().toISOString(),
-      avatar: '/img/default-avatar.svg',
-    };
-
-    setItem(CURRENT_USER_KEY, JSON.stringify(user));
-    notifyAuthChange();
-    return { success: true, user };
+    cacheUser(data.user);
+    return { success: true, user: data.user };
   } catch {
     return {
       success: false,
-      error: 'Не удалось связаться со Strapi (проверьте http://127.0.0.1:1337)',
+      error: 'Не удалось связаться с сервером авторизации',
     };
   }
 }
@@ -141,46 +125,64 @@ export async function login(
   }
 
   try {
-    const res = await fetch(`${STRAPI_URL}/api/auth/local`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier: cleanId, password }),
-    });
-    const data = await res.json();
+    const data = await postAuth('login', { identifier: cleanId, password });
 
-    if (!res.ok) {
+    if (!data.user) {
       return {
         success: false,
-        error: mapStrapiAuthError(data?.error?.message),
+        error: data.error?.message || 'Не удалось выполнить вход',
       };
     }
 
-    if (data.jwt) {
-      setItem(TOKEN_KEY, data.jwt);
-    }
-
-    const user: User = {
-      id: String(data.user.id),
-      strapiId: data.user.id,
-      email: data.user.email,
-      username: data.user.username,
-      createdAt: data.user.createdAt || new Date().toISOString(),
-      avatar: '/img/default-avatar.svg',
-    };
-
-    setItem(CURRENT_USER_KEY, JSON.stringify(user));
-    notifyAuthChange();
-    return { success: true, user };
+    cacheUser(data.user);
+    return { success: true, user: data.user };
   } catch {
     return {
       success: false,
-      error: 'Сервер Strapi недоступен',
+      error: 'Сервер авторизации недоступен',
     };
   }
 }
 
-export function logout(): void {
-  removeItem(CURRENT_USER_KEY);
-  removeItem(TOKEN_KEY);
-  notifyAuthChange();
+/** Завершает сессию: сервер удаляет httpOnly-куку. */
+export async function logout(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+  } catch {
+    /* даже при сетевой ошибке локальный кэш профиля нужно очистить */
+  }
+  clearUser();
+}
+
+/**
+ * Сверяет кэш профиля с серверной сессией.
+ * Вызывается при старте приложения: протухшая кука → пользователь разлогинен.
+ */
+export async function refreshCurrentUser(): Promise<User | null> {
+  try {
+    const res = await fetch('/api/auth/me', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      if (getItem(CURRENT_USER_KEY)) clearUser();
+      return null;
+    }
+
+    const data = (await res.json().catch(() => ({}))) as AuthResponse;
+    if (!data.user) {
+      if (getItem(CURRENT_USER_KEY)) clearUser();
+      return null;
+    }
+
+    cacheUser(data.user);
+    return data.user;
+  } catch {
+    return getCurrentUser();
+  }
 }
